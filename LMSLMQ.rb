@@ -441,16 +441,6 @@ def ConnThread(local)
   local.close
 end
 
-Thread.new do
-  h = `sclibridge statenames "*\\.*\\.Host"`.split(".Host\n")
-  loop do
-    h.each do |v|
-      `#{$WS}"#{v}.CurrentArtworkPath" "#{Base64.encode64(`#{$RS}"#{v}.CurrentArtworkURL"`).delete("\n")}"`
-      sleep(0.5)
-    end
-  end
-end
-
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }
 end
