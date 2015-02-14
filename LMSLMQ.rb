@@ -2,7 +2,6 @@
 
 require 'logger'
 $LOG = Logger.new('/home/RPM/lmslmq.log')
-$LOG.debug "I did something!"
 $LOG.level = Logger::ERROR
 
 require 'socket'
