@@ -210,6 +210,7 @@ end
 def SavantRequest(hostname,cmd,req)
   h = Hash[req.map {|e| e.split(":") if e.to_s.include? ":"}]
   @@playerDB[hostname["address"]]||= Hash.new
+  #puts cmd
   return send(cmd,hostname["address"],h)
 end
 
@@ -239,7 +240,7 @@ def Status(playerId,req)
       :Time => t||"",
       :Duration => d||"",
       :Info => [player[:NowPlaying]["Name"]||"",chap||"",""],
-      :Artwork => "http://#{@@MovieServerAddress}/mediabrowser/Items/#{player[:NowPlaying]["Id"]}/Images/#{img}?&Format=PNG"
+      :Artwork => "http://#{@@MovieServerAddress}/mediabrowser/Items/#{player[:NowPlaying]["Id"]}/Images/#{img}?&Format=PNG&BackgroundColor=Black"
     }
   else
     body = {
@@ -266,14 +267,14 @@ def TopMenu(playerId,req)
       :id =>i["Id"],
       :cmd =>i["Type"],
       :text =>i["Name"],
-      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100"
+      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100&BackgroundColor=Black"
       }
   end
   b[b.length] = {
     :id =>"Users",
     :cmd =>"UsersMenu",
     :text =>"Users - #{@@playerDB[playerId]["UserName"]}",
-    :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Users/#{@@playerDB[playerId]["UserId"]}/Images/Primary?height=100"
+    :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Users/#{@@playerDB[playerId]["UserId"]}/Images/Primary?height=100&BackgroundColor=Black"
     }
     puts b
   return b
@@ -423,7 +424,7 @@ def UsersMenu(playerId,req)
       :id =>i["Name"],
       :cmd =>"Login",
       :text =>i["Name"],
-      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Users/#{i["Id"]}/Images/Primary?height=100"
+      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Users/#{i["Id"]}/Images/Primary?height=100&BackgroundColor=Black"
       }
   end
   return b
@@ -431,17 +432,17 @@ end
 
 def CollectionFolder(playerId,req)
   mId = req["id"]
-  dat = ServerGET("/Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
+  dat = ServerGET("Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
   dat = JSON.parse(dat.body)["Items"]
   b = []
   dat.each do |i|
-    if i["ChildCount"] > 0
+    if i["ChildCount"].nil? || i["ChildCount"] > 0
       img = BestImage(i["ImageTags"],i["BackdropImageTags"])
       b[b.length] = {
         :id =>i["Id"],
         :cmd =>i["Type"],
         :text =>i["Name"],
-        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100"
+        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100&BackgroundColor=Black"
         }
     end
   end
@@ -450,7 +451,7 @@ end
 
 def UserView(playerId,req)
   mId = req["id"]
-  dat = ServerGET("/Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
+  dat = ServerGET("Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
   dat = JSON.parse(dat.body)["Items"]
   b = []
   dat.each do |i|
@@ -460,7 +461,7 @@ def UserView(playerId,req)
         :id =>i["Id"],
         :cmd =>i["Type"],
         :text =>i["Name"],
-        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100"
+        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100&BackgroundColor=Black"
         }
     end
   end
@@ -469,7 +470,7 @@ end
 
 def Series(playerId,req)
   mId = req["id"]
-  dat = ServerGET("/Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
+  dat = ServerGET("Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
   dat = JSON.parse(dat.body)["Items"]
   b = []
   dat.each do |i|
@@ -479,7 +480,7 @@ def Series(playerId,req)
         :id =>i["Id"],
         :cmd =>i["Type"],
         :text =>i["Name"],
-        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100"
+        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100&BackgroundColor=Black"
         }
     end
   end
@@ -488,7 +489,7 @@ end
 
 def Season(playerId,req)
   mId = req["id"]
-  dat = ServerGET("/Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
+  dat = ServerGET("Users/#{@@playerDB[playerId]["UserId"]}/Items?ParentId=#{mId}",playerId)
   dat = JSON.parse(dat.body)["Items"]
   b = []
   dat.each do |i|
@@ -498,7 +499,7 @@ def Season(playerId,req)
         :id =>i["Id"],
         :cmd =>i["Type"],
         :text =>i["Name"],
-        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100"
+        :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{i["Id"]}/Images/#{img}?height=100&BackgroundColor=Black"
         }
     end
   end
@@ -507,7 +508,7 @@ end
 
 def Movie(playerId,req)
   mId = req["id"]
-  dat = ServerGET("/Users/#{@@playerDB[playerId]["UserId"]}/Items?Ids=#{mId}&Fields=Chapters",playerId)
+  dat = ServerGET("Users/#{@@playerDB[playerId]["UserId"]}/Items?Ids=#{mId}&Fields=Chapters",playerId)
   dat = JSON.parse(dat.body)["Items"][0]["Chapters"]
   b = []
   dat.each_with_index do |i,index|
@@ -515,7 +516,7 @@ def Movie(playerId,req)
       :id =>"#{mId}|#{i["StartPositionTicks"] / 10000000}",
       :cmd =>"PlayAt",
       :text =>i["Name"],
-      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{mId}/Images/Chapter/#{index}?height=100"
+      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{mId}/Images/Chapter/#{index}?height=100&BackgroundColor=Black"
       }
   end
   Play(playerId,mId,0,0)
@@ -524,7 +525,7 @@ end
 
 def Episode(playerId,req)
   mId = req["id"]
-  dat = ServerGET("/Users/#{@@playerDB[playerId]["UserId"]}/Items?Ids=#{mId}&Fields=Chapters",playerId)
+  dat = ServerGET("Users/#{@@playerDB[playerId]["UserId"]}/Items?Ids=#{mId}&Fields=Chapters",playerId)
   dat = JSON.parse(dat.body)["Items"][0]["Chapters"]
   b = []
   dat.each_with_index do |i,index|
@@ -532,7 +533,7 @@ def Episode(playerId,req)
       :id =>"#{mId}:#{i["StartPositionTicks"] / 10000000}",
       :cmd =>"PlayAt",
       :text =>i["Name"],
-      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{mId}/Images/Chapter/#{index}?height=100"
+      :icon =>"http://#{@@MovieServerAddress}/mediabrowser/Items/#{mId}/Images/Chapter/#{index}?height=100&BackgroundColor=Black"
       }
   end
   Play(playerId,mId,0,0)
