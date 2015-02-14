@@ -1,9 +1,15 @@
 #!/usr/bin/env ruby
 
+require 'logger'
+$LOG = Logger.new('/home/RPM/lmslmq.log')
+$LOG.debug "I did something!"
+$LOG.level = Logger::ERROR
+
 require 'socket'
 require 'rubygems'
 require 'json'
 require 'base64'
+
 
 def SetupScli
   $path = "/Users/RPM"
@@ -26,13 +32,13 @@ def SetupArt
   hNm = `sclibridge statenames "*\\.SystemName"`.chomp(".SystemName\n")
   h.each do |v|
     sNm,sTp = v.split('.')
-    r = "#{$ST}'#{v}' 1 String '#{sNm}' '#{sTp}' CurrentArtworkURL 'Not Equal' '' 0 '#{$ZN[0]}' '#{hNm}' '' 1 'SVC_GEN_GENERIC' 'RunCLIProgram' 'COMMAND_STRING' \"#{$WS}'#{v}.CurrentArtworkPath' $(echo -n `/usr/local/bin/sclibridge readstate '#{v}.CurrentArtworkURL'` | base64 -w 0)\""
-    puts r.inspect
+    r = "#{$ST}'#{v}' 1 String '#{sNm}' '#{sTp}' CurrentArtworkURL 'Not Equal' '' 0 '#{$ZN[0]}' '#{hNm}' '' 1 'SVC_GEN_GENERIC' 'RunCLIProgram' 'COMMAND_STRING' \"#{$WS}'#{v}.CurrentArtworkPath' $(echo -n `/usr/local/bin/sclibridge readstate '#{v}.CurrentArtworkURL'` | base64)\""
+   $LOG.debug r.inspect # -w 0
     `#{r}`
   end
 end
 SetupScli()
-SetupArt()
+#SetupArt() Shouldn't be needed after 7.1
 
 $plugins = []
 Dir[File.expand_path(File.dirname(__FILE__)) + '/plugins/*.rb'].each do |file|
@@ -40,7 +46,7 @@ Dir[File.expand_path(File.dirname(__FILE__)) + '/plugins/*.rb'].each do |file|
     require file
     $plugins.push(File.basename(file,".rb"))
   #rescue
-  #  puts "Plugin failed to load: #{file}"
+  # $LOG.debug "Plugin failed to load: #{file}"
   #end
 end
 
@@ -65,7 +71,7 @@ end
 
 def GetSavantReply(body)
   body = JSON.generate(body)
-  #puts "LMS Reply:\n#{body}\n\n"
+  $LOG.debug "LMS Reply:\n#{body}\n\n"
   head = $head.sub(/Content-Length: \d+/,"Content-Length: #{body.length}")
   return "#{head}\r\n\r\n#{body}"
 end
@@ -207,9 +213,12 @@ def CreateMenu(hostname,menuArray)
       }
     body["result"]["item_loop"][body["result"]["item_loop"].length-1][:icon]=i[:icon] if i[:icon]
     body["result"]["item_loop"][body["result"]["item_loop"].length-1][:presetParams]={} if i[:iContext]
+    if menuArray.length > 40
+      tk = i[:text].delete("The ")[0].upcase
+      body["result"]["item_loop"][body["result"]["item_loop"].length-1][:textkey]=tk
+    end
   end
-  body["result"]["item_loop"][0][:textkey]="" if menuArray.length > 40
-  puts JSON.pretty_generate(body)
+ $LOG.debug JSON.pretty_generate(body)
   return body
 end
 
@@ -394,7 +403,7 @@ def SavantRequest(req)
   when req.find {|e| /cmd:([^"]+)/ =~ e} # if command is defined by plugin
     cmd = $1
   else
-    puts "Request ignored:\n#{req}" 
+   $LOG.debug "Request ignored:\n#{req}" 
   end
   if cmd && pNm && hostname
     rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
@@ -419,7 +428,7 @@ def ConnThread(local)
     end
     return
   end
-  #puts "Savant Request:\n#{head}\n#{msg}\n\n"
+  $LOG.debug "Savant Request:\n#{head}\n#{msg}\n\n"
   if msg && msg.length > 4 && head.include?("json")
     req = JSON.parse(msg)
     case req
@@ -429,13 +438,13 @@ def ConnThread(local)
     when Hash
       body = SavantRequest(req)
     else
-      puts "Unexpected result: #{req}"
+     $LOG.debug "Unexpected result: #{req}"
     end
     reply = GetSavantReply(body)
     begin
       local.write(reply)
     rescue Errno::EPIPE
-      puts "Reply failed. Savant Closed Socket. Continuing..."
+     $LOG.debug "Reply failed. Savant Closed Socket. Continuing..."
     end
   end
   local.close
