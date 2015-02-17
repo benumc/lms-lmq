@@ -21,7 +21,7 @@ def SetupScli
   $SN = scli + "statenames "
   $ZN = `#{scli} userzones`.split("\n")
   $ST = scli + "settrigger "
-  $LOG = Logger.new("#{$path}/lmslmq.log")
+  $LOG = Logger.new("lmslmq.log")
   $LOG.level = Logger::ERROR
 end
 
