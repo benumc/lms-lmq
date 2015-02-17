@@ -21,8 +21,6 @@ def SetupScli
   $SN = scli + "statenames "
   $ZN = `#{scli} userzones`.split("\n")
   $ST = scli + "settrigger "
-  $LOG = Logger.new("lmslmq.log")
-  $LOG.level = Logger::ERROR
 end
 
 def SetupArt
@@ -35,8 +33,11 @@ def SetupArt
     `#{r}`
   end
 end
-SetupScli()
+#SetupScli()
 #SetupArt() Shouldn't be needed after 7.1
+
+  $LOG = Logger.new("lmslmq.log")
+  $LOG.level = Logger::ERROR
 
 $plugins = []
 Dir[File.expand_path(File.dirname(__FILE__)) + '/plugins/*.rb'].each do |file|
