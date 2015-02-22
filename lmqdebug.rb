@@ -69,7 +69,7 @@ end
 
 def GetSavantReply(body)
   body = JSON.generate(body)
-  $LOG.debug "LMS Reply:\n#{body}\n\n"
+  puts "LMS Reply:\n#{body}\n\n"
   head = $head.sub(/Content-Length: \d+/,"Content-Length: #{body.length}")
   return "#{head}\r\n\r\n#{body}"
 end
@@ -216,7 +216,7 @@ def CreateMenu(hostname,menuArray)
       body["result"]["item_loop"][body["result"]["item_loop"].length-1][:textkey]=tk
     end
   end
- $LOG.debug JSON.pretty_generate(body)
+ puts JSON.pretty_generate(body)
   return body
 end
 
@@ -401,7 +401,7 @@ def SavantRequest(req)
   when req.find {|e| /cmd:([^"]+)/ =~ e} # if command is defined by plugin
     cmd = $1
   else
-   $LOG.debug "Request ignored:\n#{req}" 
+   puts "Request ignored:\n#{req}" 
   end
   if cmd && pNm && hostname
     rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
@@ -428,7 +428,7 @@ def ConnThread(local)
     end
     return
   end
-  $LOG.debug "Savant Request:\n#{head}\n#{msg}\n\n"
+  puts "Savant Request:\n#{head}\n#{msg}\n\n"
   if msg && msg.length > 4 && head.include?("json")
     req = JSON.parse(msg)
     case req
@@ -438,14 +438,14 @@ def ConnThread(local)
     when Hash
       body = SavantRequest(req)
     else
-     $LOG.debug "Unexpected result: #{req}"
+     puts "Unexpected result: #{req}"
     end
     puts "Reply#{body}"
     reply = GetSavantReply(body)
     begin
       local.write(reply)
     rescue Errno::EPIPE
-     $LOG.debug "Reply failed. Savant Closed Socket. Continuing..."
+     puts "Reply failed. Savant Closed Socket. Continuing..."
     end
   end
   local.close
