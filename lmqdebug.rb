@@ -414,7 +414,6 @@ end
 def ConnThread(local)
   puts "Savant Connected"
   head,msg = ReadFromSavant(local)
-  puts "Head: #{head}\r\n\r\nMessage: #{msg}\r\n**********************************"
   if msg.include? "netplayaudio"
     begin
       local.write(Netplayaudio.NetplayConnect(head,msg))
