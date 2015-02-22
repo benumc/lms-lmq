@@ -40,26 +40,26 @@ def SendToPlayer(add,msg)
 end
 
 def Play(pId,url,mId,start=0)
-  SendToPlayer(pId,"?command=in_play&input=#{url}")
+  ServerGet(url)
   @@playerDB[pId][:NowPlaying] = mId
   @@playerDB[pId][:Time] = Time.new.to_i + 4
   @@playerDB[pId][:Mode] = "play"
 end
 
 def Pause(pId)
-  SendToPlayer(pId,"QPLPAUSE\r")
+  #SendToPlayer(pId,"QPLPAUSE\r")
   @@playerDB[pId][:Time] = Time.new.to_i - @@playerDB[pId][:Time] + 1
   @@playerDB[pId][:Mode] = "pause"
 end
 
 def Resume(pId)
-  SendToPlayer(pId,"QPLPAUSE\r")
+  #SendToPlayer(pId,"QPLPAUSE\r")
   @@playerDB[pId][:Time] = Time.new.to_i -  @@playerDB[pId][:Time]
   @@playerDB[pId][:Mode] = "play"
 end
 
 def Stop(pId)
-  SendToPlayer(pId,"QSTOP\r")
+  #SendToPlayer(pId,"QSTOP\r")
   @@playerDB[pId][:Mode] = nil
   @@playerDB[pId][:Mode] = stop
   @@playerDB[pId][:Time] = 0
@@ -69,7 +69,7 @@ end
 
 def SavantRequest(hostname,cmd,req)
   puts "Req: #{req.inspect}"
-  h = Hash[req.map {|e| e.split(":") if e e.to_s.include? ":"}]
+  h = Hash[req.map {|e| e.split(":") if e && e.to_s.include?(":")}]
   @@playerDB[hostname["address"]] ||= {}
   return send(cmd,hostname["address"],h["id"] || "")
 end
@@ -233,8 +233,10 @@ def video(pId,mId)
     :cmd => r.root.attributes["type"],
     :text => r.root.attributes["name"]
   }]
-  src = r.elements["group"].elements["media"].attributes["src"]
-  src = "http://#{@@PlayonServer}/#{src}"
+  src = ""
+  r.elements["group"].each do |element|
+    src = element.attributes["src"] if element.attributes["name"] == "Roku 2"
+  end
   Play(pId,src,mId)
   return {}
 end
