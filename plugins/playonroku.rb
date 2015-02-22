@@ -40,7 +40,7 @@ def SendToPlayer(add,msg)
 end
 
 def Play(pId,url,mId,start=0)
-  ServerGet(url)
+  puts ServerGet(url)
   @@playerDB[pId][:NowPlaying] = mId
   @@playerDB[pId][:Time] = Time.new.to_i + 4
   @@playerDB[pId][:Mode] = "play"
@@ -235,8 +235,10 @@ def video(pId,mId)
   }]
   src = ""
   r.elements["group"].each do |element|
+    puts element
     src = element.attributes["src"] if element.attributes["name"] == "Roku 2"
   end
+  puts src
   Play(pId,src,mId)
   return {}
 end
