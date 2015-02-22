@@ -35,7 +35,7 @@ def SetupArt
     `#{r}`
   end
 end
-SetupScli()
+#SetupScli()
 #SetupArt() Shouldn't be needed after 7.1
 
 $plugins = []
