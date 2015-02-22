@@ -6,38 +6,6 @@ require 'rubygems'
 require 'json'
 require 'base64'
 
-
-def SetupScli
-  $path = "/Users/RPM"
-  scli = "~/Applications/RacePointMedia/sclibridge "
-  if RUBY_PLATFORM.include? "linux"
-   $path = "/home/RPM"
-   scli = "/usr/local/bin/sclibridge "  
-  end
-  
-  $RS = scli + "readstate "
-  $WS = scli + "writestate "
-  $SR = scli + "servicerequestcommand "
-  $SN = scli + "statenames "
-  $ZN = `#{scli} userzones`.split("\n")
-  $ST = scli + "settrigger "
-  $LOG = Logger.new("#{$path}/lmslmq.log")
-  $LOG.level = Logger::ERROR
-end
-
-def SetupArt
-  h = `sclibridge statenames "*\\.*\\.Host"`.split(".Host\n")
-  hNm = `sclibridge statenames "*\\.SystemName"`.chomp(".SystemName\n")
-  h.each do |v|
-    sNm,sTp = v.split('.')
-    r = "#{$ST}'#{v}' 1 String '#{sNm}' '#{sTp}' CurrentArtworkURL 'Not Equal' '' 0 '#{$ZN[0]}' '#{hNm}' '' 1 'SVC_GEN_GENERIC' 'RunCLIProgram' 'COMMAND_STRING' \"#{$WS}'#{v}.CurrentArtworkPath' $(echo -n `/usr/local/bin/sclibridge readstate '#{v}.CurrentArtworkURL'` | base64)\""
-   $LOG.debug r.inspect # -w 0
-    `#{r}`
-  end
-end
-#SetupScli()
-#SetupArt() Shouldn't be needed after 7.1
-
 $plugins = []
 Dir[File.expand_path(File.dirname(__FILE__)) + '/plugins/*.rb'].each do |file|
   #begin
@@ -443,7 +411,7 @@ def ConnThread(local)
     reply = GetSavantReply(body)
     begin
       local.write(reply)
-    rescue Errno::EPIPE
+    rescue #Errno::EPIPE not sure why this isn't catching socket errors.
      puts "Reply failed. Savant Closed Socket. Continuing..."
     end
   end
