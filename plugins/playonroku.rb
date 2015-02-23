@@ -236,7 +236,7 @@ def video(pId,mId)
   src = ""
   r.elements["group"].each do |element|
     puts element
-    src = element.attributes["src"] if element.attributes["name"] == "Roku 2"
+    src = element.attributes["src"] if element.attributes["type"] == "roku"
   end
   puts src
   Play(pId,src,mId)
