@@ -40,7 +40,7 @@ def SendToPlayer(add,msg)
 end
 
 def Play(pId,url,mId,start=0)
-  puts ServerGet(url)
+  puts ServerGET(url)
   @@playerDB[pId][:NowPlaying] = mId
   @@playerDB[pId][:Time] = Time.new.to_i + 4
   @@playerDB[pId][:Mode] = "play"
