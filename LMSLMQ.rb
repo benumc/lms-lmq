@@ -4,56 +4,24 @@ require 'logger'
 require 'socket'
 require 'rubygems'
 require 'json'
-require 'base64'
-
-
-def SetupScli
-  $path = "/Users/RPM"
-  scli = "~/Applications/RacePointMedia/sclibridge "
-  if RUBY_PLATFORM.include? "linux"
-   $path = "/home/RPM"
-   scli = "/usr/local/bin/sclibridge "  
-  end
-  
-  $RS = scli + "readstate "
-  $WS = scli + "writestate "
-  $SR = scli + "servicerequestcommand "
-  $SN = scli + "statenames "
-  $ZN = `#{scli} userzones`.split("\n")
-  $ST = scli + "settrigger "
-end
-
-def SetupArt
-  h = `sclibridge statenames "*\\.*\\.Host"`.split(".Host\n")
-  hNm = `sclibridge statenames "*\\.SystemName"`.chomp(".SystemName\n")
-  h.each do |v|
-    sNm,sTp = v.split('.')
-    r = "#{$ST}'#{v}' 1 String '#{sNm}' '#{sTp}' CurrentArtworkURL 'Not Equal' '' 0 '#{$ZN[0]}' '#{hNm}' '' 1 'SVC_GEN_GENERIC' 'RunCLIProgram' 'COMMAND_STRING' \"#{$WS}'#{v}.CurrentArtworkPath' $(echo -n `/usr/local/bin/sclibridge readstate '#{v}.CurrentArtworkURL'` | base64)\""
-   $LOG.debug r.inspect # -w 0
-    `#{r}`
-  end
-end
-#SetupScli()
-#SetupArt() Shouldn't be needed after 7.1
-
-  $LOG = Logger.new("lmslmq.log")
-  $LOG.level = Logger::ERROR
-
-$plugins = []
-Dir[File.expand_path(File.dirname(__FILE__)) + '/plugins/*.rb'].each do |file|
-  #begin
-    require file
-    $plugins.push(File.basename(file,".rb"))
-  #rescue
-  # $LOG.debug "Plugin failed to load: #{file}"
-  #end
-end
 
 $head = "HTTP/1.1 200 OK\r\nServer: Logitech Media Server\r\nContent-Length: 0\r\nContent-Type: application/json"
 
 $blockSize = 1024
 $server = TCPServer.open(9000)
 $menuBuffer = {}
+
+def LoadPlugin(pNm)
+  if pNm.length > 0
+    begin
+      Object.const_get(pNm)
+    rescue
+      puts "Loading #{pNm}"
+      f = File.expand_path(File.dirname(__FILE__)) + '/' + pNm
+      require f
+    end
+  end
+end
 
 def ReadFromSavant(local)
   data = local.recv($blockSize)
@@ -70,7 +38,7 @@ end
 
 def GetSavantReply(body)
   body = JSON.generate(body)
-  $LOG.debug "LMS Reply:\n#{body}\n\n"
+  #puts "LMS Reply:\n#{body}\n\n"
   head = $head.sub(/Content-Length: \d+/,"Content-Length: #{body.length}")
   return "#{head}\r\n\r\n#{body}"
 end
@@ -202,22 +170,49 @@ def CreateMenu(hostname,menuArray)
       "item_loop"=>[]}}
   return body unless menuArray.respond_to?('each')
   menuArray.each do |i|
-    body["result"]["item_loop"][body["result"]["item_loop"].length] = {
-      "params"=>{
-        :cmd=>i[:cmd],
-        :id=>i[:id],
-        :args=>[i[:args]]
+    if i[:iInput]
+      body["result"]["item_loop"][body["result"]["item_loop"].length] = {
+        "actions"=> {
+          "go"=> {
+            "params"=> {
+              "search"=> "__TAGGEDINPUT__",
+              "id"=>i[:id],
+              "menu"=> "search"
+            },
+            "cmd"=> [i[:cmd]]
+          }
         },
-      :text=>i[:text]
+        "window"=> {
+          "titleStyle"=> "album"
+        },
+        "input"=> {
+          "len"=> 1,
+          "processingPopup"=> {
+            "text"=> "Searching..."
+          },
+        },
+        "text"=> i[:text],
+        "weight"=> 110,
+        "id"=> "opmlsearch"
       }
-    body["result"]["item_loop"][body["result"]["item_loop"].length-1][:icon]=i[:icon] if i[:icon]
-    body["result"]["item_loop"][body["result"]["item_loop"].length-1][:presetParams]={} if i[:iContext]
+    else
+      body["result"]["item_loop"][body["result"]["item_loop"].length] = {
+        "params"=>{
+          :cmd=>i[:cmd],
+          :id=>i[:id],
+          :args=>[i[:args]]
+        },
+        :text=>i[:text]
+        }
+      body["result"]["item_loop"][body["result"]["item_loop"].length-1][:icon]=i[:icon] if i[:icon]
+      body["result"]["item_loop"][body["result"]["item_loop"].length-1][:presetParams]={} if i[:iContext]
+    end
     if menuArray.length > 40
       tk = i[:text].delete("The ")[0].upcase
       body["result"]["item_loop"][body["result"]["item_loop"].length-1][:textkey]=tk
     end
   end
- $LOG.debug JSON.pretty_generate(body)
+ #puts JSON.pretty_generate(body)
   return body
 end
 
@@ -258,6 +253,7 @@ def CreateNowPlaying(hostname,menuArray)
 end
 
 def CreateStatus(hostname,statusHash={})
+  #Can probably eliminate large portions of this
   body = {
     "params"=>["",["status","-","1","tags:tag"]],
     "method"=>"slim.request",
@@ -343,6 +339,7 @@ def SavantRequest(req)
   hostname = {}
   hstnm.scan(/([^:]+):([^,]+),?/).map {|x| hostname[x[0]]=x[1]}
   pNm = (hostname["plugin"]||"").capitalize
+  LoadPlugin(pNm)
   req = req["params"][1]
   case 
   when req == ["version","?"] #fixed response not sure how much is needed
@@ -385,6 +382,10 @@ def SavantRequest(req)
     cmd = "TransportSkipReverse"
   when req[0] == "button" && req[1] == "jump_fwd"
     cmd = "TransportSkipForward"
+  when req[0] == "search"
+    cmd = "Search"
+  when req[0] == "input"
+    cmd = "Input"
   when req[0] == "power" && req[1] == "0"
     cmd = "PowerOff"
   when req[0] == "power" && req[1] == "1"
@@ -402,7 +403,7 @@ def SavantRequest(req)
   when req.find {|e| /cmd:([^"]+)/ =~ e} # if command is defined by plugin
     cmd = $1
   else
-   $LOG.debug "Request ignored:\n#{req}" 
+   puts "Request ignored:\n#{req}" 
   end
   if cmd && pNm && hostname
     rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
@@ -413,7 +414,9 @@ def SavantRequest(req)
 end
 
 def ConnThread(local)
+  #puts "Savant Connected"
   head,msg = ReadFromSavant(local)
+  #puts "Head: #{head},Message: #{msg}"
   if msg.include? "netplayaudio"
     begin
       local.write(Netplayaudio.NetplayConnect(head,msg))
@@ -427,24 +430,41 @@ def ConnThread(local)
     end
     return
   end
-  $LOG.debug "Savant Request:\n#{head}\n#{msg}\n\n"
+  #puts "Savant Request:\n#{head}\n#{msg}\n\n"
   if msg && msg.length > 4 && head.include?("json")
     req = JSON.parse(msg)
     case req
     when Array #some of the setup requests are arrays not
       body = MetaConnect(req[0]["channel"])
-      Netplayaudio.NetplayConnect(head,msg)
+      #Netplayaudio.NetplayConnect(head,msg)
     when Hash
       body = SavantRequest(req)
     else
-     $LOG.debug "Unexpected result: #{req}"
+     puts "Unexpected result: #{req}"
     end
+    #puts "Reply#{body}"
     reply = GetSavantReply(body)
     begin
       local.write(reply)
     rescue Errno::EPIPE
-     $LOG.debug "Reply failed. Savant Closed Socket. Continuing..."
+     puts "Reply failed. Savant Closed Socket. Continuing..."
     end
+  else
+    address,port = head.slice!(/GET (\/[^\/]+)\/.+HTTP\/1.1/,1)[1..-1].split(":")
+    #puts head
+        sock = TCPSocket.open(address,port)
+        sock.write("#{head}\r\n\r\n")
+        h = sock.gets("\r\n\r\n")
+        /Content-Length: ([^\r\n]+)\r\n/.match(h)
+        l = $1.to_i
+        if l
+          r = ""
+          while r.length < l
+            r << sock.read(l-r.length)
+          end
+          local.write(h+r)
+        end
+    return 
   end
   local.close
 end
