@@ -44,17 +44,30 @@ def ServerGET(url)
 end
 
 def CreateWebSocket(pId)
-  if Time.new.to_i - pId[:LastPacket].to_i > 5
     pId[:Thread].kill if pId[:Thread]
-    pId[:Socket] = TCPSocket.open(pId[:sockAddress],pId[:sockPort])
+    Reconnect(pId)
+    begin
+      pId[:Socket] = TCPSocket.open(pId[:sockAddress],pId[:sockPort])
+    rescue
+      puts "Failed to create websocket."
+      puts pId[:sockAddress],pId[:sockPort]
+      return
+    end
     pId[:Socket].write(@@Handshake)
     puts pId[:Socket].gets("\r\n\r\n")
     pId[:Thread] = Thread.new do
       puts "Listening"
       while true
-        m = pId[:Socket].recv(1)
+        begin
+          m = pId[:Socket].recv(1)
+        rescue
+          puts "Connection to PlayOn Lost"
+          pId[:Socket] = nil
+          break
+        end
         pId[:LastPacket] = Time.new.to_i
         if m.empty?
+          pId[:Socket] = nil
           puts "websocket closed"
           break
         end
@@ -75,6 +88,25 @@ def CreateWebSocket(pId)
         m = JSON.parse(m)
         pId[m[0]]=m[1]
       end
+    end
+end
+
+def Reconnect(pId)
+  if Time.new.to_i - pId[:LastPacket].to_i > 5
+    puts "Reconnect: #{pId.inspect}"
+    pId[:sockAddress] = nil
+    r = ServerGET("/playto/chromecast/devices?onlyplayon=true")
+    serial = ''
+    r.scan(/media_playto name="([^"]+)" serial="([^"]+)"/) do |n,s|
+      serial = s if n.casecmp(pId[:address]) == 0
+    end
+    if serial.length > 1
+      r = ServerGET("/playto/chromecast/reconnect?serial=#{serial}")
+      /ws:\/\/([^:]*):([^\/]*)\//.match(r)
+      pId[:sockAddress] = $1
+      pId[:sockPort] = $2.to_i
+      pId[:LastPacket] = Time.new.to_i
+      CreateWebSocket(pId)
     end
   end
 end
@@ -97,6 +129,7 @@ def mask_payload(payload)
 end
 
 def SendToPlayer(pId,data)
+  puts "Send To Player #{data}" unless data.include? "INFO"
   if pId[:Socket]
     frame = ''
     byte1 = 0x1
@@ -111,7 +144,6 @@ def SendToPlayer(pId,data)
     end
     frame << masked_payload if masked_payload
     pId[:Socket].write(frame)
-    
   end
 end
 
@@ -120,7 +152,7 @@ def Play(pId,url,mId,start=0)
   /ws:\/\/([^:]*):([^\/]*)\//.match(r)
   pId[:sockAddress] = $1
   pId[:sockPort] = $2.to_i
-  CreateWebSocket(pId)
+  Reconnect(pId)
   SendToPlayer(pId,"INFO {}")
   pId[:NowPlaying] = mId
   pId[:Time] = Time.new.to_i + 4
@@ -149,11 +181,16 @@ end
 #Savant Request Handling Below********************
 
 def SavantRequest(hostname,cmd,req)
-  puts "Req: #{req.inspect}" unless req.include? "status"
+  puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
   h = Hash[req.map {|e| e.split(":") if e && e.to_s.include?(":")}]
-  @@playerDB[hostname["address"]] ||= {}
-  @@playerDB[hostname["address"]][:address] = hostname["address"]
-  return send(cmd,@@playerDB[hostname["address"]],h["id"] || "",h)
+  unless @@playerDB[hostname["address"]]
+    @@playerDB[hostname["address"]] = {}
+    @@playerDB[hostname["address"]][:address] = hostname["address"]
+    Reconnect(@@playerDB[hostname["address"]])
+  end
+  r = send(cmd,@@playerDB[hostname["address"]],h["id"] || "",h)
+  puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
+  return r
 end
 
 def TopMenu(pId,mId,parameters)
@@ -176,11 +213,11 @@ def TopMenu(pId,mId,parameters)
 end
 
 def Status(pId,mId,parameters)
-  CreateWebSocket(pId) if pId[:Socket]
+  Reconnect(pId)
   body = {}
   SendToPlayer(pId,"INFO {}")
   m = pId["MEDIA_STATUS"]
-  if m 
+  if m && m["media"]
     print m["playerState"]+"              \r"
     mode = case m["playerState"]
     when "IDLE"
@@ -194,6 +231,7 @@ def Status(pId,mId,parameters)
     else
       "stop"
     end
+    
     id = m["sessionCookie"]
     pTime = m["currentTime"].to_i
     tTime = m["media"]["duration"].to_i
@@ -205,13 +243,15 @@ def Status(pId,mId,parameters)
     i << m["media"]["seriesTitle"]
     i << m["media"]["customData"]["description"][0..20]
     i << m["media"]["customData"]["description"][21..40]
+    volume = (m["volume"]["level"].to_f * 100).to_i
     body = {
           :Mode => mode,
           :Id => id,
           :Time => pTime,
           :Duration => tTime,
           :Info => i,
-          :Artwork => art
+          :Artwork => art,
+          :Volume => volume
         }
   end
   return body
@@ -243,7 +283,7 @@ def TransportPause(pId,mId,parameters)
 end
 
 def TransportStop(pId,mId,parameters)
-  SendToPlayer(pId,"STOP {}")
+  SendToPlayer(pId,"PAUSE {}")
 end
 
 def TransportFastReverse(pId,mId,parameters)
@@ -292,7 +332,7 @@ def Input(pId,mId,parameters)
 end
 
 def Search(pId,mId,parameters)
-  r = Document.new ServerGET(mId+"&searchterm=dc:description%20contains%20"+parameters["search"])
+  r = Document.new ServerGET(mId+"&searchterm=dc:description%20contains%20"+URI.escape(parameters["search"]))
   b = []
   art = r.root.attributes["art"]
   searchable = r.root.attributes["searchable"]
@@ -313,23 +353,44 @@ def Search(pId,mId,parameters)
 end
 
 def VolumeUp(pId,mId,parameters)
- #puts "Command not implemented: #{mId}"
+  m = pId["MEDIA_STATUS"]
+  if m
+    vol = ((((m["volume"]["level"].to_f * 100).to_i)+2)*0.01).to_s
+    SendToPlayer(pId,'VOLUME {"level":'+ vol +',"muted":false}')
+  end
 end
 
 def VolumeDown(pId,mId,parameters)
- #puts "Command not implemented: #{mId}"
+  m = pId["MEDIA_STATUS"]
+  if m
+    vol = ((((m["volume"]["level"].to_f * 100).to_i)-2)*0.01).to_s
+    SendToPlayer(pId,'VOLUME {"level":'+ vol +',"muted":false}')
+  end
 end
 
 def SetVolume(pId,mId,parameters)
- #puts "Command not implemented: #{mId}"
+  vol = (parameters["volume"].to_f * 0.01).to_s
+  SendToPlayer(pId,'VOLUME {"level":'+ vol +',"muted":false}')
 end
 
 def MuteOn(pId,mId,parameters)
- #puts "Command not implemented: #{mId}"
+  m = pId["MEDIA_STATUS"]
+  if m
+    puts m["volume"]["level"]
+    vol = (((m["volume"]["level"].to_f * 100).to_i)*0.01).to_s
+    pId[:Volume] = vol
+    puts vol
+    SendToPlayer(pId,'VOLUME {"level":0,"muted":false}')
+  end
 end
 
 def MuteOff(pId,mId,parameters)
- #puts "Command not implemented: #{mId}"
+  m = pId["MEDIA_STATUS"]
+  if m
+    vol = pId[:Volume] || "0"
+    puts vol
+    SendToPlayer(pId,'VOLUME {"level":'+ vol +',"muted":false}')
+  end
 end
 
 #plugin defined requests below ************

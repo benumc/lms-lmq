@@ -255,12 +255,12 @@ end
 def CreateStatus(hostname,statusHash={})
   #Can probably eliminate large portions of this
   body = {
-    "params"=>["",["status","-","1","tags:tag"]],
+    "params"=>[hostname,["status","-","1","tags:tag"]],
     "method"=>"slim.request",
     "id"=>"1",
     "result"=>{
       "seq_no"=>0,
-      "mixer_volume"=>50,
+      "mixer volume"=>0,
       "player_name"=>"player",
       "playlist_tracks"=>0,
       "player_connected"=>1,
@@ -277,7 +277,8 @@ def CreateStatus(hostname,statusHash={})
     body["id"] = statusHash[:Id]
     body["result"] = {
       "seq_no"=>0,
-      "mixer_volume"=>50,
+      "mixer volume"=>statusHash[:Volume],
+      "mixer muting"=>1,
       "player_name"=>"player",
       "playlist_tracks"=>0,
       "player_connected"=>1,
@@ -395,6 +396,7 @@ def SavantRequest(req)
   when req[0] == "mixer" && req[1] == "volume" && req[2] == "-1"
     cmd = "VolumeDown"
   when req[0] == "mixer" && req[1] == "volume"
+    req[1] = req[1]+":"+req[2]
     cmd = "SetVolume"
   when req[0] == "mixer" && req[1] == "muting" && req[2] == "1"
     cmd = "MuteOn"
@@ -406,7 +408,11 @@ def SavantRequest(req)
    puts "Request ignored:\n#{req}" 
   end
   if cmd && pNm && hostname
-    rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
+    begin
+      rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
+    rescue
+      puts "Plugin Error."
+    end
     body = CreateMenu(hostname,rep) if rep
   end
   body ||= EmptyBody()
@@ -450,25 +456,30 @@ def ConnThread(local)
      puts "Reply failed. Savant Closed Socket. Continuing..."
     end
   else
-    address,port = head.slice!(/GET (\/[^\/]+)\/.+HTTP\/1.1/,1)[1..-1].split(":")
-    #puts head
-        sock = TCPSocket.open(address,port)
-        sock.write("#{head}\r\n\r\n")
-        h = sock.gets("\r\n\r\n")
-        /Content-Length: ([^\r\n]+)\r\n/.match(h)
-        l = $1.to_i
-        if l
-          r = ""
-          while r.length < l
-            r << sock.read(l-r.length)
-          end
-          local.write(h+r)
+    unless head.nil?
+      #puts head.inspect
+      address,port = head.slice!(/GET (\/[^\/]+)\/.+HTTP\/1.1/,1)[1..-1].split(":")
+      sock = TCPSocket.open(address,port)
+      sock.write("#{head}\r\n\r\n")
+      h = sock.gets("\r\n\r\n")
+      /Content-Length: ([^\r\n]+)\r\n/.match(h)
+      l = $1.to_i
+      if l
+        r = ""
+        while r.length < l
+          r << sock.read(l-r.length)
         end
-    return 
+        begin
+          local.write(h+r)
+        rescue
+          put "Write failed. Savant Closed Socket. Continuing..."
+        end
+      end
+    end
   end
   local.close
 end
-
+#Thread.abort_on_exception = true
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }
 end
