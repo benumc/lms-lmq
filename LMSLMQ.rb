@@ -208,7 +208,7 @@ def CreateMenu(hostname,menuArray)
       body["result"]["item_loop"][body["result"]["item_loop"].length-1][:presetParams]={} if i[:iContext]
     end
     if menuArray.length > 40
-      tk = i[:text].delete("The ")[0].upcase
+      tk = (i[:text].delete("The ")[0] || "").upcase
       body["result"]["item_loop"][body["result"]["item_loop"].length-1][:textkey]=tk
     end
   end
@@ -479,7 +479,9 @@ def ConnThread(local)
   end
   local.close
 end
+
 #Thread.abort_on_exception = true
+
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }
 end
