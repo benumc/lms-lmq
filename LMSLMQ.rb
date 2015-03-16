@@ -136,19 +136,19 @@ def CreateTopMenu(hostname,menuArray)
   return body unless menuArray
   menuArray.each do |i|
     if i[:iInput]
+
       body["result"]["item_loop"][body["result"]["item_loop"].length] = {
         "actions"=> {
           "go"=> {
             "params"=> {
               "search"=> "__TAGGEDINPUT__",
-              "id"=>i[:id],
               "menu"=> "search"
             },
             "cmd"=> [i[:cmd]]
           }
         },
         "window"=> {
-          "titleStyle"=> "album"
+          "text"=> i[:text]
         },
         "input"=> {
           "len"=> 1,
@@ -156,9 +156,10 @@ def CreateTopMenu(hostname,menuArray)
             "text"=> "Searching..."
           },
         },
-        "text"=> i[:text],
+        "homeMenuText"=> i[:text],
         "weight"=> 110,
-        "id"=> "opmlsearch"
+        "node"=> "home",
+        "id"=> i[:id]
       }
     else
       body["result"]["item_loop"][body["result"]["item_loop"].length] = {
@@ -436,7 +437,7 @@ def SavantRequest(req)
     cmd = "TransportSelect"
   when req[0] == "search"
     cmd = "Search"
-  when req[0] == "input"
+  when req[0] == "input" || req[0] == "Input"
     cmd = "Input"
   when req[0] == "power" && req[1] == "0"
     cmd = "PowerOff"

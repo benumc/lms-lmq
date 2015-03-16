@@ -23,7 +23,7 @@ def ServerGET(ip,url)
   http = Net::HTTP.new(uri.host, uri.port)
   http.read_timeout = 500
   req = Net::HTTP::Get.new(uri.request_uri)
-  req['Host']= "192.168.1.20:3689"
+  req['Host']= "#{ip}:3689"
   req['User-Agent'] = "iPod"
   req['Accept'] = "text/html,application/xhtml+xml,application/xml"
   req['Accept-Language'] = "en-us"
@@ -38,7 +38,7 @@ def ServerPOST(ip,url,data)
   uri = URI("http://#{ip}:3689#{url}")
   http = Net::HTTP.new(uri.host,uri.port)
   req = Net::HTTP::Post.new(URI.escape(url))
-  req['Host']= "192.168.1.20:3689"
+  req['Host']= "#{ip}:3689"
   req['User-Agent'] = "iPod"
   req['Accept'] = "text/html,application/xhtml+xml,application/xml"
   req['Accept-Language'] = "en-us"
@@ -94,7 +94,7 @@ def AppleTVlogin(ip)
 end
 
 def SendTransport(pId,data)
-  puts "Send To Player #{data}"
+  puts "Send To Player #{data.inspect}"
   ServerPOST(pId[:address],"/ctrl-int/1/controlpromptentry?prompt-id=#{pId[:promptId]}&session-id=#{pId[:sessionId]}",data)
   pId[:promptId] += 1
 end
@@ -103,7 +103,7 @@ end
 
 def SavantRequest(hostname,cmd,req)
   puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
-  h = Hash[req.map {|e| e.split(":") if e && e.to_s.include?(":")}]
+  h = Hash[req.select { |e|  e.include?(":")  }.map {|e| e.split(":") if e && e.to_s.include?(":")}]
   puts @@playerDB.inspect
   unless @@playerDB[hostname["address"]]
     @@playerDB[hostname["address"]] = {}
@@ -115,6 +115,33 @@ def SavantRequest(hostname,cmd,req)
     @@playerDB[hostname["address"]][:sessionId] = AppleTVlogin(@@playerDB[hostname["address"]][:address])
     @@playerDB[hostname["address"]][:pairing] = false
     @@playerDB[hostname["address"]][:promptId]=1
+    @@playerDB[hostname["address"]][:promptThread] = Thread.new do
+      loop do
+        p = "GET /controlpromptupdate?prompt-id=#{@@playerDB[hostname["address"]][:promptId]}"+
+        "&session-id=#{@@playerDB[hostname["address"]][:sessionId]} HTTP/1.1\r\n"+
+        "Host: #{@@playerDB[hostname["address"]][:address]}:3689\r\n"+
+        "User-Agent: iPod\r\n"+
+        "Accept: text/html,application/xhtml+xml,application/xml\r\n"+
+        "Accept-Language: en-us\r\n"+
+        "Connection: keep-alive\r\n"+
+        "Viewer-Only-Client: 1\r\n"+
+        "Client-Daap-Version: 3.10\r\n\r\n"
+        sock = TCPSocket.open(@@playerDB[hostname["address"]][:address],3689)
+        sock.write(p)
+        @@playerDB[hostname["address"]][:promptId] += 1
+        h = sock.gets("\r\n\r\n")
+        /Content-Length: ([^\r\n]+)\r\n/.match(h)
+        l = $1.to_i
+        if l
+          r = ""
+          while r.length < l
+            r << sock.read(l-r.length)
+          end
+          puts h+r.inspect
+        end
+        sleep 10
+      end
+    end
   end
   r = send(cmd,@@playerDB[hostname["address"]],h["id"] || "",h)
   puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
@@ -123,7 +150,7 @@ end
 
 def TopMenu(pId,mId,parameters)
   puts "TopMenu"
-  b = [{:id=>"Input",:cmd=>"TopMenu",:text=>"Keyboard",:iInput=>true}]
+  b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"home",:cmd=>"Home",:text=>"Home"}]
   return b
 end
 
@@ -253,10 +280,6 @@ def PowerOn(pId,mId,parameters)
  puts "Command not supported: #{mId}"
 end
 
-def Input(pId,mId,parameters)
- puts "Command not supported: #{mId}"
-end
-
 def Search(pId,mId,parameters)
  puts "Command not supported: #{mId}"
 end
@@ -288,6 +311,12 @@ end
 
 def Home(pId,mId,parameters)
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x07topmenu")
+end
+
+def Input(pId,mId,parameters)
+  t = parameters["search"]
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x33cmbe\x00\x00\x00\x0CPromptUpdatecmte\x00\x00\x00#{t.length.chr}#{t}")
+
 end
 
 end
