@@ -129,6 +129,9 @@ end
 
 def Status(pId,mId,parameters)
  #puts "Command not supported: #{mId}"
+  r = ServerGET(pId[:address],"/ctrl-int/1/playstatusupdate?revision-number=1&session-id=#{pId[:sessionId]}")
+  #art = http://#{pId[:address]}/ctrl-int/1/nowplayingartwork?mw=600&mh=600&session-id=#{pId[:sessionId]}
+  puts "need to parse #{r}"
 end
 
 def ContextMenu(pId,mId,parameters)
@@ -151,11 +154,11 @@ def SkipToTime(pId,mId,parameters)
 end
 
 def TransportPlay(pId,mId,parameters)
- #puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/play?session-id=#{pId[:sessionId]}")
 end
 
 def TransportPause(pId,mId,parameters)
- #puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/pause?session-id=#{pId[:sessionId]}")
 end
 
 def TransportStop(pId,mId,parameters)
@@ -163,88 +166,82 @@ def TransportStop(pId,mId,parameters)
 end
 
 def TransportFastReverse(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/beginrew?session-id=#{pId[:sessionId]}")
 end
 
 def TransportFastForward(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/beginff?session-id=#{pId[:sessionId]}")
 end
 
 def TransportSkipReverse(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/previtem?session-id=#{pId[:sessionId]}")
 end
 
 def TransportSkipForward(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/nextitem?session-id=#{pId[:sessionId]}")
 end
 
 def TransportRepeatOn(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.repeatstate=1&session-id=#{pId[:sessionId]}")
 end
 
 def TransportRepeatOff(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.repeatstate=0&session-id=#{pId[:sessionId]}")
 end
 
 def TransportShuffleOn(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.shufflestate=1&session-id=#{pId[:sessionId]}")
 end
 
 def TransportShuffleOff(pId,mId,parameters)
- puts "Command not supported: #{mId}"
+  ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.shufflestate=0&session-id=#{pId[:sessionId]}")
 end
 
 def TransportMenu(pId,mId,parameters)
- #puts "Command not supported: #{mId}"
- SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x04menu")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x04menu")
 end
 
 def TransportUp(pId,mId,parameters)
- #puts "Command not supported: #{mId}"
-     SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchDown&time=0&point=20,275")
-     SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=20,270")
-     SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=2&point=20,265")
-     SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=20,260")
-     SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=20,255")
-     SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=20,250")
-     SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=6&point=20,250")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchDown&time=0&point=20,275")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=20,270")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=2&point=20,265")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=20,260")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=20,255")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=20,250")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=6&point=20,250")
 end
 
 def TransportDown(pId,mId,parameters)
- puts "Command not supported: #{mId}"
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchDown&time=0&point=20,250")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=20,255")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=2&point=20,260")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=20,265")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=20,270")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=20,275")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=6&point=20,275")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchDown&time=0&point=20,250")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=20,255")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=2&point=20,260")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=20,265")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=20,270")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=20,275")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=6&point=20,275")
 end
 
 def TransportLeft(pId,mId,parameters)
- puts "Command not supported: #{mId}"
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1EtouchDown&time=0&point=75,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=70,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=65,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=60,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=55,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=6&point=50,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=7&point=50,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1EtouchDown&time=0&point=75,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=70,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=65,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=60,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=55,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=6&point=50,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=7&point=50,100")
 end
 
 def TransportRight(pId,mId,parameters)
- puts "Command not supported: #{mId}"
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchDown&time=0&point=50,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=55,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=60,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=65,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=70,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=6&point=75,100")
-    SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=7&point=75,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchDown&time=0&point=50,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=1&point=55,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=3&point=60,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=65,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=70,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=6&point=75,100")
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=7&point=75,100")
 end
 
 def TransportSelect(pId,mId,parameters)
- #puts "Command not supported: #{mId}"
  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x06select")
 end
 
@@ -289,5 +286,8 @@ def MuteOff(pId,mId,parameters)
 end
 #plugin defined requests below ************
 
+def Home(pId,mId,parameters)
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x07topmenu")
+end
 
 end
