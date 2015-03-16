@@ -35,8 +35,9 @@ def ServerGET(ip,url)
 end
 
 def ServerPOST(ip,url,data)
-  uri = URI.parse("http://#{ip}:3689#{url}")
-  req = Net::HTTP::Post.new(uri)
+  uri = URI("http://#{ip}:3689#{url}")
+  http = Net::HTTP.new(uri.host,uri.port)
+  req = Net::HTTP::Post.new(URI.escape(url))
   req['Host']= "192.168.1.20:3689"
   req['User-Agent'] = "iPod"
   req['Accept'] = "text/html,application/xhtml+xml,application/xml"
@@ -45,10 +46,8 @@ def ServerPOST(ip,url,data)
   req['Viewer-Only-Client'] = 1
   req['Client-Daap-Version'] = 3.10
   req.body = data
-  r = Net::HTTP.start(uri.hostname, uri.port) do |http|
-    http.request(req)
-  end
-  return r  
+  r = http.request(req)
+  return r
 end
 
 def AppleTVReply(sock)
@@ -97,7 +96,7 @@ end
 def SendTransport(pId,data)
   puts "Send To Player #{data}"
   ServerPOST(pId[:address],"/ctrl-int/1/controlpromptentry?prompt-id=#{pId[:promptId]}&session-id=#{pId[:sessionId]}",data)
-  
+  pId[:promptId] += 1
 end
 
 #Savant Request Handling Below********************
@@ -105,6 +104,7 @@ end
 def SavantRequest(hostname,cmd,req)
   puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
   h = Hash[req.map {|e| e.split(":") if e && e.to_s.include?(":")}]
+  puts @@playerDB.inspect
   unless @@playerDB[hostname["address"]]
     @@playerDB[hostname["address"]] = {}
     @@playerDB[hostname["address"]][:address] = hostname["address"]
@@ -112,7 +112,7 @@ def SavantRequest(hostname,cmd,req)
   return nil if @@playerDB[hostname["address"]][:pairing] == true
   unless @@playerDB[hostname["address"]][:sessionId]
     @@playerDB[hostname["address"]][:pairing] = true
-    @@playerDB[hostname["address"]][:sessionId] = AppleTVpair(@@playerDB[hostname["address"]][:address])
+    @@playerDB[hostname["address"]][:sessionId] = AppleTVlogin(@@playerDB[hostname["address"]][:address])
     @@playerDB[hostname["address"]][:pairing] = false
     @@playerDB[hostname["address"]][:promptId]=1
   end
