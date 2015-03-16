@@ -135,14 +135,41 @@ def CreateTopMenu(hostname,menuArray)
     "result"=>{"item_loop"=>[]}}
   return body unless menuArray
   menuArray.each do |i|
-    body["result"]["item_loop"][body["result"]["item_loop"].length] = {
-      "actions"=>{"go"=>{
-        "params"=>{:id=>i[:id],:args=>i[:args]},:cmd=>["cmd:#{i[:cmd]}"]
-        }},
-      "window"=>{"icon-id"=>i[:icon]},
-      "node"=>"home",
-      "text"=>i[:text]
+    if i[:iInput]
+      body["result"]["item_loop"][body["result"]["item_loop"].length] = {
+        "actions"=> {
+          "go"=> {
+            "params"=> {
+              "search"=> "__TAGGEDINPUT__",
+              "id"=>i[:id],
+              "menu"=> "search"
+            },
+            "cmd"=> [i[:cmd]]
+          }
+        },
+        "window"=> {
+          "titleStyle"=> "album"
+        },
+        "input"=> {
+          "len"=> 1,
+          "processingPopup"=> {
+            "text"=> "Searching..."
+          },
+        },
+        "text"=> i[:text],
+        "weight"=> 110,
+        "id"=> "opmlsearch"
       }
+    else
+      body["result"]["item_loop"][body["result"]["item_loop"].length] = {
+        "actions"=>{"go"=>{
+          "params"=>{:id=>i[:id],:args=>i[:args]},:cmd=>["cmd:#{i[:cmd]}"]
+          }},
+        "window"=>{"icon-id"=>i[:icon]},
+        "node"=>"home",
+        "text"=>i[:text]
+        }
+    end
   end
   return body
 end
@@ -383,6 +410,30 @@ def SavantRequest(req)
     cmd = "TransportSkipReverse"
   when req[0] == "button" && req[1] == "jump_fwd"
     cmd = "TransportSkipForward"
+  when req[0] == "button" && req[1] == "repeat_on"
+    cmd = "TransportRepeatOn"
+  when req[0] == "button" && req[1] == "repeat_off"
+    cmd = "TransportRepeatOff"
+  when req[0] == "button" && req[1] == "shuffle_on"
+    cmd = "TransportShuffleOn"
+  when req[0] == "button" && req[1] == "shuffle_off"
+    cmd = "TransportShuffleOn"
+  when req[0] == "button" && req[1] == "play"
+    cmd = "TransportPlay"
+  when req[0] == "button" && req[1] == "pause"
+    cmd = "TransportPause"
+  when req[0] == "button" && req[1] == "menu"
+    cmd = "TransportMenu"
+  when req[0] == "button" && req[1] == "up"
+    cmd = "TransportUp"
+  when req[0] == "button" && req[1] == "down"
+    cmd = "TransportDown"
+  when req[0] == "button" && req[1] == "left"
+    cmd = "TransportLeft"
+  when req[0] == "button" && req[1] == "right"
+    cmd = "TransportRight"
+  when req[0] == "button" && req[1] == "select"
+    cmd = "TransportSelect"
   when req[0] == "search"
     cmd = "Search"
   when req[0] == "input"
