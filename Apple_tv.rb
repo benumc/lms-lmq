@@ -1,13 +1,22 @@
 
 require 'net/http'
 require "rexml/document"
+require 'zlib'
+require 'stringio'
+
 include REXML
+
 
 module Apple_tv
   extend self
 @@playerDB = {}
 
-
+def gunzip(data)
+  io = StringIO.new(data, "rb")
+  gz = Zlib::GzipReader.new(io)
+  decompressed = gz.read
+end
+  
 def ReadFromRemote(sock)
   data = sock.gets("\n")
   if data.include? "HTTP"
@@ -93,6 +102,24 @@ def AppleTVlogin(ip)
   end
 end
 
+def ParseDAAP(buffer)
+  
+  buffer = StringIO.new(buffer)
+  
+  ret = {}
+  puts "begin parsing"
+  buffer.read(8)
+  while !buffer.eof?   
+    
+    code = buffer.read(4).to_sym
+    length = buffer.read(4).unpack('N').first
+    data = buffer.read(length)
+    ret[code] = data
+    
+  end
+  ret
+end
+
 def SendTransport(pId,data)
   puts "Send To Player #{data.inspect}"
   ServerPOST(pId[:address],"/ctrl-int/1/controlpromptentry?prompt-id=#{pId[:promptId]}&session-id=#{pId[:sessionId]}",data)
@@ -137,7 +164,7 @@ def SavantRequest(hostname,cmd,req)
           while r.length < l
             r << sock.read(l-r.length)
           end
-          puts h+r.inspect
+          #puts h+r.inspect
         end
         sleep 10
       end
@@ -156,9 +183,41 @@ end
 
 def Status(pId,mId,parameters)
  #puts "Command not supported: #{mId}"
-  r = ServerGET(pId[:address],"/ctrl-int/1/playstatusupdate?revision-number=1&session-id=#{pId[:sessionId]}")
-  #art = http://#{pId[:address]}/ctrl-int/1/nowplayingartwork?mw=600&mh=600&session-id=#{pId[:sessionId]}
-  puts "need to parse #{r}"
+  r = ServerGET(pId[:address],"/ctrl-int/1/playstatusupdate?revision-number=1&session-id=#{pId[:sessionId]}").body
+  r = gunzip(r)#.force_encoding("ASCII")
+  r = ParseDAAP(r)
+  return if r.nil?
+  mode = case r[:caps]
+    when "\x04"
+      "play"
+    when "\x03"
+      "pause"
+    else
+      "stop"
+    end
+  rTime = (r[:cant]||"").unpack('H*')[0].to_i(16)/1000
+  tTime = (r[:cast]||"").unpack('H*')[0].to_i(16)/1000
+  pTime = tTime-rTime
+  i = []
+  r[:cann].gsub!("\x00","") if r[:cann]
+  r[:cana].gsub!("\x00","") if r[:cana]
+  r[:canl].gsub!("\x00","") if r[:canl]
+  i << r[:cann]
+  i << r[:cana]
+  i << r[:canl]
+  i = i.compact
+  puts i.inspect
+  art = "http://#{pId[:address]}/ctrl-int/1/nowplayingartwork?mw=600&mh=600&session-id=#{pId[:sessionId]}"
+  body = {
+      :Mode => mode,
+      :Id => "id",
+      :Time => pTime,
+      :Duration => tTime,
+      :Info => i,
+      :Artwork => art
+    }
+    puts body.inspect
+  return body
 end
 
 def ContextMenu(pId,mId,parameters)

@@ -305,7 +305,7 @@ def CreateStatus(hostname,statusHash={})
     body["id"] = statusHash[:Id]
     body["result"] = {
       "seq_no"=>0,
-      "mixer volume"=>statusHash[:Volume],
+      "mixer volume"=>statusHash[:Volume]||0,
       "mixer muting"=>1,
       "player_name"=>"player",
       "playlist_tracks"=>0,
@@ -459,7 +459,7 @@ def SavantRequest(req)
   else
    puts "Request ignored:\n#{req}" 
   end
-  if cmd && pNm && hostname
+  if cmd && pNm && hostname && !body
     begin
       rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
     rescue
@@ -510,7 +510,12 @@ def ConnThread(local)
   else
     unless head.nil?
       #puts head.inspect
+      begin
       address,port = head.slice!(/GET (\/[^\/]+)\/.+HTTP\/1.1/,1)[1..-1].split(":")
+      rescue
+        puts head.inspect
+        return
+      end
       sock = TCPSocket.open(address,port)
       sock.write("#{head}\r\n\r\n")
       h = sock.gets("\r\n\r\n")
@@ -532,7 +537,7 @@ def ConnThread(local)
   local.close
 end
 
-#Thread.abort_on_exception = true
+Thread.abort_on_exception = true
 
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }
