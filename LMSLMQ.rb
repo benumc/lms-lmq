@@ -302,7 +302,7 @@ def CreateStatus(hostname,statusHash={})
     }
   }
   if statusHash && statusHash[:Mode] && statusHash[:Mode] != "stop"
-    body["id"] = statusHash[:Id]
+    body["id"] = statusHash[:Id] || ""
     body["result"] = {
       "seq_no"=>0,
       "mixer volume"=>statusHash[:Volume]||0,
@@ -311,8 +311,8 @@ def CreateStatus(hostname,statusHash={})
       "playlist_tracks"=>0,
       "player_connected"=>1,
       "playlist_tracks"=>1,
-      "time"=>statusHash[:Time],
-      "mode"=>statusHash[:Mode],
+      "time"=>statusHash[:Time] || 0,
+      "mode"=>statusHash[:Mode] || "pause",
       "signalstrength"=>0,
       "playlist shuffle"=>0,
       "playlist_timestamp"=>1,
@@ -321,42 +321,42 @@ def CreateStatus(hostname,statusHash={})
       "can_seek"=>1,
       "power"=>1,
       "playlist repeat"=>0,
-      "duration"=>statusHash[:Duration],
+      "duration"=>statusHash[:Duration] || 0,
       "playlist mode"=>"off",
       "player_ip"=>"",
       "playlist repeat"=>0,
       "playlist_cur_index"=>"1",
       "playlist_loop"=>[{
         "playlist index"=>1,
-        "id"=>statusHash[:Id],
+        "id"=>statusHash[:Id] || "",
         "title"=>statusHash[:Info][0]||statusHash[:Info]||"",
-        "coverid"=>statusHash[:Id],
+        "coverid"=>statusHash[:Id]||"",
         "artist"=>statusHash[:Info][1]||"",
         "album"=>statusHash[:Info][2]||"",
-        "duration"=>statusHash[:Duration],
+        "duration"=>statusHash[:Duration] || 0,
         "tracknum"=>"1",
         #"year"=>player[:NowPlaying]["ProductionYear"],
         #"bitrate"=>player[:NowPlaying]["MediaStreams"][0]["BitRate"],
         #"url"=>player[:NowPlaying]["Path"],
         #"type"=>player[:NowPlaying]["Type"],
-        "artwork_url"=>statusHash[:Artwork]
+        "artwork_url"=>statusHash[:Artwork]||""
       }],
       "remoteMeta"=>{
-        "id"=>statusHash[:Id],
+        "id"=>statusHash[:Id]||"",
         "title"=>statusHash[:Info][0]||statusHash[:Info]||"",
-        "coverid"=>statusHash[:Id],
+        "coverid"=>statusHash[:Id]||"",
         "artist"=>statusHash[:Info][1]||"",
         "album"=>statusHash[:Info][1]||"",
-        "duration"=>statusHash[:Duration],
+        "duration"=>statusHash[:Duration]||0,
         "tracknum"=>"1",
         #"year"=>player[:NowPlaying]["ProductionYear"],
         #"bitrate"=>player[:NowPlaying]["MediaStreams"][0]["BitRate"],
         #"url"=>player[:NowPlaying]["Path"],
         #"type"=>player[:NowPlaying]["Type"],
-        "artwork_url"=>statusHash[:Artwork]
+        "artwork_url"=>statusHash[:Artwork]||""
       },
       "playlist shuffle"=>0,
-      "current_title"=>statusHash[:Info][0]||statusHash[:Info],
+      "current_title"=>statusHash[:Info][0]||statusHash[:Info]||"",
       "player_ip"=>""
     }
   end
@@ -537,7 +537,7 @@ def ConnThread(local)
   local.close
 end
 
-Thread.abort_on_exception = true
+#Thread.abort_on_exception = true
 
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }

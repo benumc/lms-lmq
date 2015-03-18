@@ -177,7 +177,7 @@ end
 
 def TopMenu(pId,mId,parameters)
   puts "TopMenu"
-  b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"home",:cmd=>"Home",:text=>"Home"}]
+  b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true}]
   return b
 end
 
@@ -198,6 +198,7 @@ def Status(pId,mId,parameters)
   rTime = (r[:cant]||"").unpack('H*')[0].to_i(16)/1000
   tTime = (r[:cast]||"").unpack('H*')[0].to_i(16)/1000
   pTime = tTime-rTime
+  pTime = 0 if pTime < 0
   i = []
   r[:cann].gsub!("\x00","") if r[:cann]
   r[:cana].gsub!("\x00","") if r[:cana]
@@ -222,69 +223,85 @@ end
 
 def ContextMenu(pId,mId,parameters)
  #puts "Command not supported: #{mId}"
+  return nil
   
 end
 
 def NowPlaying(pId,mId,parameters)
  #puts "Command not supported: #{mId}"
+  return nil
   
 end
 
 def AutoStart(pId,mId,parameters)
  #puts "Command not supported: #{mId}"
+  return nil
   
 end
 
 def SkipToTime(pId,mId,parameters)
  #puts "Command not supported: #{mId}"
+  return nil
 end
 
 def TransportPlay(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/play?session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportPause(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/pause?session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportStop(pId,mId,parameters)
- #puts "Command not supported: #{mId}"
+  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x07topmenu")
+  return nil
 end
 
 def TransportFastReverse(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/beginrew?session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportFastForward(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/beginff?session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportSkipReverse(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/previtem?session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportSkipForward(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/nextitem?session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportRepeatOn(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.repeatstate=1&session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportRepeatOff(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.repeatstate=0&session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportShuffleOn(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.shufflestate=1&session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportShuffleOff(pId,mId,parameters)
   ServerGET(pId[:address],"/ctrl-int/1/setproperty?dacp.shufflestate=0&session-id=#{pId[:sessionId]}")
+  return nil
 end
 
 def TransportMenu(pId,mId,parameters)
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x04menu")
+  return nil
 end
 
 def TransportUp(pId,mId,parameters)
@@ -295,6 +312,7 @@ def TransportUp(pId,mId,parameters)
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=20,255")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=20,250")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=6&point=20,250")
+  return nil
 end
 
 def TransportDown(pId,mId,parameters)
@@ -305,6 +323,7 @@ def TransportDown(pId,mId,parameters)
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=4&point=20,270")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=20,275")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=6&point=20,275")
+  return nil
 end
 
 def TransportLeft(pId,mId,parameters)
@@ -315,6 +334,7 @@ def TransportLeft(pId,mId,parameters)
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=55,100")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=6&point=50,100")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=7&point=50,100")
+  return nil
 end
 
 def TransportRight(pId,mId,parameters)
@@ -325,57 +345,64 @@ def TransportRight(pId,mId,parameters)
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=5&point=70,100")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1DtouchMove&time=6&point=75,100")
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x1BtouchUp&time=7&point=75,100")
+  return nil
 end
 
 def TransportSelect(pId,mId,parameters)
  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x06select")
+  return nil
 end
 
 def PowerOff(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def PowerOn(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def Search(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def VolumeUp(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def VolumeDown(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def SetVolume(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def MuteOn(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def MuteOff(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 
 def MuteOff(pId,mId,parameters)
  puts "Command not supported: #{mId}"
+  return nil
 end
 #plugin defined requests below ************
-
-def Home(pId,mId,parameters)
-  SendTransport(pId,"cmcc\x00\x00\x00\x01\x30cmbe\x00\x00\x00\x07topmenu")
-end
 
 def Input(pId,mId,parameters)
   t = parameters["search"]
   SendTransport(pId,"cmcc\x00\x00\x00\x01\x33cmbe\x00\x00\x00\x0CPromptUpdatecmte\x00\x00\x00#{t.length.chr}#{t}")
-
+  return nil
 end
 
 end
