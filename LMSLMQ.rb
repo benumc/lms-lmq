@@ -5,7 +5,8 @@ require 'socket'
 require 'rubygems'
 require 'json'
 
-$head = "HTTP/1.1 200 OK\r\nServer: Logitech Media Server\r\nContent-Length: 0\r\nContent-Type: application/json"
+$Head = "HTTP/1.1 200 OK\r\nServer: Logitech Media Server\r\nContent-Length: 0\r\nContent-Type: application/json"
+$NotFound = "HTTP/1.1 404 Not Found\r\n\r\n"
 
 $blockSize = 1024
 $server = TCPServer.open(9000)
@@ -39,7 +40,7 @@ end
 def GetSavantReply(body)
   body = JSON.generate(body)
   #puts "LMS Reply:\n#{body}\n\n"
-  head = $head.sub(/Content-Length: \d+/,"Content-Length: #{body.length}")
+  head = $Head.sub(/Content-Length: \d+/,"Content-Length: #{body.length}")
   return "#{head}\r\n\r\n#{body}"
 end
 
@@ -156,7 +157,7 @@ def CreateTopMenu(hostname,menuArray)
             "text"=> "Searching..."
           },
         },
-        "homeMenuText"=> i[:text],
+        "text"=> i[:text],
         "weight"=> 110,
         "node"=> "home",
         "id"=> i[:id]
@@ -280,7 +281,7 @@ def CreateNowPlaying(hostname,menuArray)
   return body
 end
 
-def CreateStatus(hostname,statusHash={})
+def CreateStatus(hostname,statusHash)
   #Can probably eliminate large portions of this
   body = {
     "params"=>[hostname,["status","-","1","tags:tag"]],
@@ -462,10 +463,11 @@ def SavantRequest(req)
   if cmd && pNm && hostname && !body
     begin
       rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
-    rescue
-      puts "Plugin Error."
+    rescue 
+      puts $!, $@
+      abort
     end
-    body = CreateMenu(hostname,rep) if rep
+    body = CreateMenu(hostname,rep) unless rep.nil?
   end
   body ||= EmptyBody()
   return body
@@ -507,37 +509,33 @@ def ConnThread(local)
     rescue Errno::EPIPE
      puts "Reply failed. Savant Closed Socket. Continuing..."
     end
-  else
-    unless head.nil?
-      #puts head.inspect
-      begin
+  else #savant could be asking for artwork, try and facilitate...
+    r = ""
+    begin
       address,port = head.slice!(/GET (\/[^\/]+)\/.+HTTP\/1.1/,1)[1..-1].split(":")
-      rescue
-        puts head.inspect
-        return
-      end
       sock = TCPSocket.open(address,port)
       sock.write("#{head}\r\n\r\n")
       h = sock.gets("\r\n\r\n")
       /Content-Length: ([^\r\n]+)\r\n/.match(h)
       l = $1.to_i
-      if l
-        r = ""
-        while r.length < l
-          r << sock.read(l-r.length)
-        end
-        begin
-          local.write(h+r)
-        rescue
-          put "Write failed. Savant Closed Socket. Continuing..."
-        end
+      while r.length < l
+        r << sock.read(l-r.length)
       end
+      r = h+r
+    rescue
+      "puts file not found #{head}"
+      r = $NotFound
+    end
+    begin
+      local.write(r)
+      local.close
+    rescue
+      put "Write failed. Savant Closed Socket. Continuing..."
     end
   end
-  local.close
 end
 
-#Thread.abort_on_exception = true
+Thread.abort_on_exception = true
 
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }
