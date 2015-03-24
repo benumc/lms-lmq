@@ -37,7 +37,6 @@ def PlexGet(pId,msg)
     url << "?X-Plex-Token=#{pId[:token]}"
   end
   uri = URI.parse(url)
-  puts uri
   http = Net::HTTP.new(uri.host, uri.port)
   http.read_timeout = 500
   req = Net::HTTP::Get.new(uri.request_uri)
@@ -53,6 +52,9 @@ def PlayerGet(pId,msg)
   req = Net::HTTP::Get.new(uri.request_uri)
   r = http.request(req)
   return r.body.encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''})
+rescue
+  puts $!, $@
+  return nil
 end
 
 #Savant Request Handling Below********************
@@ -60,16 +62,16 @@ end
 def SavantRequest(hostname,cmd,req)
   puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
   h = Hash[req.select { |e|  e.include?(":")  }.map {|e| e.split(":") if e && e.to_s.include?(":")}]
-  #puts @@playerDB.inspect
   pId = @@playerDB[hostname["address"]]
   unless pId
-    pId = {}
+    @@playerDB[hostname["address"]] = {}
+    pId = @@playerDB[hostname["address"]]
     pId[:address] = hostname["address"]
     pId[:server] = hostname["server"] || hostname["address"]
     r = Document.new PlexGet(pId,"")
     pId[:serverId] = r.root.attributes["machineIdentifier"]
     pId[:token] = Dir["token.*"][0]
-    pId[:token].slice!("token.")
+    pId[:token].slice!("token.") if pId[:token]
   end  
   r = send(cmd,pId,h["id"] || "",h)
   puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
@@ -517,24 +519,29 @@ def Directory(pId,mId,parameters)
 end
 
 def GetPlexMenu(pId,url)
+  puts url
   r = Document.new PlexGet(pId,url)
   b = []
-  r.elements.each("MediaContainer/Video") do |e|    
+  pThumb = r.root.attributes["thumb"]
+  r.elements.each("MediaContainer/Video") do |e|
+    id = e.attributes["key"]
+    id = "#{url}/#{id}" unless id.include? '/'
     b[b.length] = {
-      :id =>e.attributes["key"],
+      :id =>id,
       :cmd =>"Video",
       :text =>e.attributes["title"],
-      :icon =>"http://#{pId[:server]}#{e.attributes["thumb"]}"
+      :icon =>"http://#{pId[:server]}#{e.attributes["thumb"]||pThumb}"
     }
   end
   
   r.elements.each("MediaContainer/Directory") do |e|
-
+    id = e.attributes["key"]
+    id = "#{url}/#{id}" unless id.include? '/'
     b[b.length] = {
-      :id =>"#{e.attributes["key"]}",
+      :id =>id,
       :cmd =>"Directory",
       :text =>e.attributes["title"],
-      :icon =>"http://#{pId[:server]}#{e.attributes["thumb"]}"
+      :icon =>"http://#{pId[:server]}#{e.attributes["thumb"]||pThumb}"
     }
   end
   return b
