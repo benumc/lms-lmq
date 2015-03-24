@@ -53,6 +53,7 @@ def PlayerGet(pId,msg)
     url << "?X-Plex-Token=#{pId[:token]}"
   end
   uri = URI.parse(url)
+  puts "HERE IS THE A URI TO LOOK AT!!!!!!\n#{uri}"
   http = Net::HTTP.new(uri.host, uri.port)
   http.read_timeout = 500
   req = Net::HTTP::Get.new(uri.request_uri)
