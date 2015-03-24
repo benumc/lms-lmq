@@ -31,8 +31,13 @@ end
 
 def PlexGet(pId,msg)
   url = "http://#{pId[:server]}#{msg}"
-  url << "&X-Plex-Token=#{pId[:token]}" if url.include?('?')
+  if url.include?('?')
+    url << "&X-Plex-Token=#{pId[:token]}"
+  else
+    url << "?X-Plex-Token=#{pId[:token]}"
+  end
   uri = URI.parse(url)
+  puts uri
   http = Net::HTTP.new(uri.host, uri.port)
   http.read_timeout = 500
   req = Net::HTTP::Get.new(uri.request_uri)
