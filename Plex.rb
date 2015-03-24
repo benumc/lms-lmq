@@ -30,7 +30,9 @@ rescue
 end
 
 def PlexGet(pId,msg)
-  uri = URI.parse("http://#{pId[:server]}#{msg}&X-Plex-Token=#{pId[:token]}")
+  url = "http://#{pId[:server]}#{msg}"
+  url << "&X-Plex-Token=#{pId[:token]}" if url.include?('?')
+  uri = URI.parse(url)
   http = Net::HTTP.new(uri.host, uri.port)
   http.read_timeout = 500
   req = Net::HTTP::Get.new(uri.request_uri)
@@ -63,7 +65,6 @@ def SavantRequest(hostname,cmd,req)
     pId[:serverId] = r.root.attributes["machineIdentifier"]
     pId[:token] = Dir["token.*"][0]
     pId[:token].slice!("token.")
-    puts pId[:token]
   end  
   r = send(cmd,pId,h["id"] || "",h)
   puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
