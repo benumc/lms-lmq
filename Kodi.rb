@@ -79,13 +79,14 @@ def Status(pId,mId,parameters)
   r = ServerPost(pId,s)["result"]
   #puts r.inspect
   return nil unless r["item"] && r["item"].length > 0
-  a = r["item"]["art"]["poster"] ||\
+  a = r["item"]["art"]["album.thumb"] ||\
+      r["item"]["art"]["tvshow.thumb"] ||\
+      r["item"]["art"]["poster"] ||\
       r["item"]["art"]["artist.fanart"] ||\
       r["item"]["art"]["fanart"] ||\
-      r["item"]["art"]["album.thumb"] ||\
       r["item"]["art"]["thumb"]
   art = "http://#{pId[:address]}/image/#{a.gsub!('%','%25')}" if a
-  if art.include? "127.0.0.1"
+  if art && art.include?("127.0.0.1")
     art = URI.decode(URI.decode(URI.decode(art))).split("url=")[1]
     art.gsub!("127.0.0.1:32400",pId[:server] || pId[:address])
   end
@@ -260,12 +261,34 @@ def TransportRepeatOn(pId,mId,parameters)
   return nil
 end
 
+def TransportRepeatToggle(pId,mId,parameters)
+  ServerPost(pId,{
+    :method => "Player.Shuffle",
+    :params => {
+      :playerid => pId[:playerId],
+      :repeat => "cycle"
+    }
+    })
+  return nil
+end
+
 def TransportRepeatOff(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
       :playerid => pId[:playerId],
       :repeat => "off"
+    }
+    })
+  return nil
+end
+
+def TransportShuffleToggle(pId,mId,parameters)
+  ServerPost(pId,{
+    :method => "Player.Shuffle",
+    :params => {
+      :playerid => pId[:playerId],
+      :shuffle => "toggle"
     }
     })
   return nil

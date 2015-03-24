@@ -414,12 +414,16 @@ def SavantRequest(req)
     cmd = "TransportSkipForward"
   when req[0] == "button" && req[1] == "repeat_on"
     cmd = "TransportRepeatOn"
+  when req[0] == "button" && req[1] == "repeat_toggle"
+    cmd = "TransportRepeatToggle"
   when req[0] == "button" && req[1] == "repeat_off"
     cmd = "TransportRepeatOff"
   when req[0] == "button" && req[1] == "shuffle_on"
     cmd = "TransportShuffleOn"
   when req[0] == "button" && req[1] == "shuffle_off"
-    cmd = "TransportShuffleOn"
+    cmd = "TransportShuffleOff"
+  when req[0] == "button" && req[1] == "shuffle_toggle"
+    cmd = "TransportShuffleToggle"
   when req[0] == "button" && req[1] == "play"
     cmd = "TransportPlay"
   when req[0] == "button" && req[1] == "pause"
@@ -474,7 +478,6 @@ def SavantRequest(req)
 end
 
 def ConnThread(local)
-  #puts "Savant Connected"
   head,msg = ReadFromSavant(local)
   #puts "Head: #{head},Message: #{msg}"
   if msg.include? "netplayaudio"
@@ -536,7 +539,7 @@ def ConnThread(local)
 end
 
 Thread.abort_on_exception = true
-
+puts "Waiting for connection from Savant on port 9000. #{$server}"
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }
 end
