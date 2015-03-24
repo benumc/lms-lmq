@@ -128,6 +128,11 @@ def Status(pId,mId,parameters)
   if art && art.include?("127.0.0.1")
     art = URI.decode(URI.decode(URI.decode(art))).split("url=")[1]
     art.gsub!("127.0.0.1:32400",pId[:server] || pId[:address])
+    if art.include?('?')
+      art << "&X-Plex-Token=#{pId[:token]}"
+    else
+      art << "?X-Plex-Token=#{pId[:token]}"
+    end
   end
   
   
