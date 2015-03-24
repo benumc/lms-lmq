@@ -35,6 +35,7 @@ def SavantRequest(hostname,cmd,req)
   unless @@playerDB[hostname["address"]]
     @@playerDB[hostname["address"]] = {}
     @@playerDB[hostname["address"]][:address] = hostname["address"]
+    @@playerDB[hostname["address"]][:server] = hostname["server"] || hostname["address"]
   end  
   r = send(cmd,@@playerDB[hostname["address"]],h["id"] || "",h)
   puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
@@ -84,9 +85,9 @@ def Status(pId,mId,parameters)
       r["item"]["art"]["album.thumb"] ||\
       r["item"]["art"]["thumb"]
   art = "http://#{pId[:address]}/image/#{a.gsub!('%','%25')}" if a
-  if art.includes? "127.0.0.1"
-    art = URI.decode(URI.decode(art)).split("url=")[1]
-    art.gsub!("127.0.0.1:32400",pId[:server])
+  if art.include? "127.0.0.1"
+    art = URI.decode(URI.decode(URI.decode(art))).split("url=")[1]
+    art.gsub!("127.0.0.1:32400",pId[:server] || pId[:address])
   end
   
   
