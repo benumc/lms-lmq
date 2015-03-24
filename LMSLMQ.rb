@@ -493,7 +493,7 @@ def ConnThread(local)
     end
     return
   end
-  #puts "Savant Request:\n#{head}\n#{msg}\n\n"
+  puts "Savant Request:\n#{head}\n#{msg}\n\n"
   if msg && msg.length > 4 && head.include?("json")
     req = JSON.parse(msg)
     case req
@@ -505,7 +505,7 @@ def ConnThread(local)
     else
      puts "Unexpected result: #{req}"
     end
-    #puts "Reply#{body}"
+    puts "Reply#{body}"
     reply = GetSavantReply(body)
     begin
       local.write(reply)
