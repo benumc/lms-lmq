@@ -41,12 +41,18 @@ def PlexGet(pId,msg)
   http.read_timeout = 500
   req = Net::HTTP::Get.new(uri.request_uri)
   r = http.request(req)
-  return r.body.encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''})
+  return r.body
 end
 
 
 def PlayerGet(pId,msg)
-  uri = URI.parse("http://#{pId[:address]}#{msg}")
+  url = "http://#{pId[:server]}#{msg}"
+  if url.include?('?')
+    url << "&X-Plex-Token=#{pId[:token]}"
+  else
+    url << "?X-Plex-Token=#{pId[:token]}"
+  end
+  uri = URI.parse(url)
   http = Net::HTTP.new(uri.host, uri.port)
   http.read_timeout = 500
   req = Net::HTTP::Get.new(uri.request_uri)
@@ -80,28 +86,9 @@ end
 
 def TopMenu(pId,mId,parameters)
   puts "TopMenu"
-  r = Document.new PlexGet(pId,"/library/sections")
   b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"search",:cmd=>"search",:text=>"Search",:iInput=>true}]
-  r.elements.each("MediaContainer/Directory") do |e|
-    b[b.length] = {
-      :id =>"/library/sections/#{e.attributes["key"]}",
-      :cmd =>"Directory",
-      :text =>e.attributes["title"],
-      :icon =>"http://#{pId[:server]}#{e.attributes["thumb"]}"
-    }
-  end
-  #/channels/all
-  r = Document.new PlexGet(pId,"/channels/all")
-  r.elements.each("MediaContainer/Directory") do |e|
-    i = e.attributes["thumb"]
-    i = "http://#{pId[:server]}#{i}" unless i.include? 'http://'
-    b[b.length] = {
-      :id =>"/library/sections/#{e.attributes["key"]}",
-      :cmd =>"Directory",
-      :text =>e.attributes["title"],
-      :icon =>i
-    }
-  end
+  b.push(*GetPlexMenu(pId,"/library/sections"))
+  b.push(*GetPlexMenu(pId,"/channels/all"))
   return b
 end
 
@@ -519,29 +506,45 @@ def Directory(pId,mId,parameters)
 end
 
 def GetPlexMenu(pId,url)
+  url.gsub!('&','&amp;')
   puts url
   r = Document.new PlexGet(pId,url)
   b = []
+  puts r.to_s
   pThumb = r.root.attributes["thumb"]
   r.elements.each("MediaContainer/Video") do |e|
+    ic = e.attributes["thumb"]||pThumb
+    ic = "http://#{pId[:server]}#{ic}" unless ic.include? 'http://'
     id = e.attributes["key"]
-    id = "#{url}/#{id}" unless id.include? '/'
+    id = "#{url}/#{id}" unless id.include?("/")  
+    if ic.include?('?')
+      ic << "&X-Plex-Token=#{pId[:token]}"
+    else
+      ic << "?X-Plex-Token=#{pId[:token]}"
+    end
     b[b.length] = {
       :id =>id,
       :cmd =>"Video",
-      :text =>e.attributes["title"],
-      :icon =>"http://#{pId[:server]}#{e.attributes["thumb"]||pThumb}"
+      :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
+      :icon =>ic
     }
   end
   
   r.elements.each("MediaContainer/Directory") do |e|
+    ic = e.attributes["thumb"]||pThumb
+    ic = "http://#{pId[:server]}#{ic}" unless ic.include? 'http://'
     id = e.attributes["key"]
-    id = "#{url}/#{id}" unless id.include? '/'
+    id = "#{url}/#{id}" unless id.include?("/")
+    if ic.include?('?')
+      ic << "&X-Plex-Token=#{pId[:token]}"
+    else
+      ic << "?X-Plex-Token=#{pId[:token]}"
+    end
     b[b.length] = {
       :id =>id,
       :cmd =>"Directory",
-      :text =>e.attributes["title"],
-      :icon =>"http://#{pId[:server]}#{e.attributes["thumb"]||pThumb}"
+      :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
+      :icon =>ic
     }
   end
   return b
