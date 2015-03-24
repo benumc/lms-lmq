@@ -1,6 +1,7 @@
 
 require 'socket'
 require 'json'
+require 'uri'
 
 module Kodi
   extend self
@@ -54,26 +55,54 @@ end
 def Status(pId,mId,parameters)
   #puts "Command not supported: #{mId}"
   r = ServerPost(pId,{:method => "Player.GetActivePlayers"})
-  
-  return nil unless r["result"] && r["result"] != []
+  #puts r.inspect
+  return nil unless r && r["result"] && r["result"] != []
+  playid = 1
+  r["result"].each {|i| playid = i["playerid"]}
+  pId[:playerId] = playid
   s = {
     :method => "Player.GetItem",
     :params => {
       :properties => [
-        "art"
+        "art",
+        "artist",
+        "album",
+        "season",
+        "episode",
+        "genre",
+        "showtitle"
       ],
-      :playerid => 1
+      :playerid => playid
     }
   }
   r = ServerPost(pId,s)["result"]
-  puts r["item"].inspect
+  #puts r.inspect
   return nil unless r["item"] && r["item"].length > 0
-  a = r["item"]["art"]["poster"] || r["item"]["art"]["fanart"] || r["item"]["art"]["thumb"]
+  a = r["item"]["art"]["poster"] ||\
+      r["item"]["art"]["artist.fanart"] ||\
+      r["item"]["art"]["fanart"] ||\
+      r["item"]["art"]["album.thumb"] ||\
+      r["item"]["art"]["thumb"]
   art = "http://#{pId[:address]}/image/#{a.gsub!('%','%25')}" if a
-  id = r["item"]["id"]
-  i = [r["item"]["label"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => '_'})]
-  i = i.compact
+  if art.includes? "127.0.0.1"
+    art = URI.decode(URI.decode(art)).split("url=")[1]
+    art.gsub!("127.0.0.1:32400",pId[:server])
+  end
   
+  
+  id = r["item"]["id"]
+   
+  i = [r["item"]["label"]]
+  i << r["item"]["showtitle"] if (r["item"]["showtitle"]||"").length > 0
+  i << r["item"]["album"] if (r["item"]["album"]||"").length > 0
+  i << r["item"]["artist"].join(",") if (r["item"]["artist"]||"").length > 0
+  if r["item"]["episode"].to_i > 0 && r["item"]["season"].to_i > 0
+    i << "Season #{r["item"]["season"]} - Episode #{r["item"]["episode"]}"
+  end
+  i << r["item"]["genre"].join(",") if (r["item"]["genre"]||"").length > 0
+  
+  i = i.flatten.compact
+  i.map{|e| e.encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => '_'})}
   s = {
     :method => "Player.GetProperties",
     :params => {
@@ -84,7 +113,7 @@ def Status(pId,mId,parameters)
         "totaltime",
         "time"
       ],
-      :playerid => 1
+      :playerid => playid
     }
   }
   r = ServerPost(pId,s)["result"]
@@ -102,6 +131,7 @@ def Status(pId,mId,parameters)
       :Info => i,
       :Artwork => art
     }
+    puts body
   return body
 end
 
@@ -131,7 +161,7 @@ def SkipToTime(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Seek",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :value => {
         :seconds => s,
         :minutes => m,
@@ -146,7 +176,7 @@ def TransportPlay(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.PlayPause",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :play => "toggle"
     }
     })
@@ -157,7 +187,7 @@ def TransportPause(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.PlayPause",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :play => false
     }
     })
@@ -168,7 +198,7 @@ def TransportStop(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Stop",
     :params => {
-      :playerid => 1
+      :playerid => pId[:playerId]
     }
     })
   return nil
@@ -178,7 +208,7 @@ def TransportFastReverse(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.SetSpeed",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :speed => "decrement"
     }
     })
@@ -189,7 +219,7 @@ def TransportFastForward(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.SetSpeed",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :speed => "increment"
     }
     })
@@ -200,7 +230,7 @@ def TransportSkipReverse(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.GoTo",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :to => "previous"
     }
     })
@@ -211,7 +241,7 @@ def TransportSkipForward(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.GoTo",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :to => "next"
     }
     })
@@ -222,7 +252,7 @@ def TransportRepeatOn(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :repeat => "all"
     }
     })
@@ -233,7 +263,7 @@ def TransportRepeatOff(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :repeat => "off"
     }
     })
@@ -244,7 +274,7 @@ def TransportShuffleOn(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :shuffle => true
     }
     })
@@ -255,7 +285,7 @@ def TransportShuffleOff(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
-      :playerid => 1,
+      :playerid => pId[:playerId],
       :shuffle => false
     }
     })
@@ -308,7 +338,7 @@ def PowerOff(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Stop",
     :params => {
-      :playerid => 1
+      :playerid => pId[:playerId]
     }
     })
   return nil
@@ -493,20 +523,44 @@ end
 def BrowseAddons(pId,mId,parameters)
    
   #{"jsonrpc":"2.0","method":"Addons.GetAddons","params":{ "type" : "xbmc.python.pluginsource", "properties": [ "thumbnail","name"] },"id": "libAddons"}
-  r = ServerPost(pId,{
+  r = []
+  r << ServerPost(pId,{
     :method=>"Addons.GetAddons",
     :params=>{
-      :type=>"xbmc.python.pluginsource",
+      :type=>"xbmc.addon.video",
       :properties=> [
         "thumbnail",
         "name"
       ]
     }
-  })["result"]
-  
-  return nil unless r && r["addons"]
+  })["result"]["addons"]
+  r << ServerPost(pId,{
+    :method=>"Addons.GetAddons",
+    :params=>{
+      :type=>"xbmc.addon.image",
+      :properties=> [
+        "thumbnail",
+        "name"
+      ]
+    }
+  })["result"]["addons"]
+  r << ServerPost(pId,{
+    :method=>"Addons.GetAddons",
+    :params=>{
+      :type=>"xbmc.addon.audio",
+      :properties=> [
+        "thumbnail",
+        "name"
+      ]
+    }
+  })["result"]["addons"]
+  return nil unless r
+  r.flatten!
+  return nil unless r
+  r.compact!
+puts r.inspect
   b = []
-  r["addons"].each do |m|
+  r.each do |m|
     i = m["thumbnail"].gsub!('%','%25') || ""
     n = m["name"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => '_'})
     b << {:id=>m["addonid"],:cmd=>"SelectAddon",:text=>n,:icon=>"http://#{pId[:address]}/image/#{i}"}
