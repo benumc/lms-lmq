@@ -75,10 +75,9 @@ def SavantRequest(hostname,cmd,req)
     pId = @@playerDB[hostname["address"]]
     pId[:address] = hostname["address"]
     pId[:server] = hostname["server"] || hostname["address"]
+    pId[:token],pId[:clientId],x = Dir["token.*"][0].split('.')
     r = Document.new PlexGet(pId,"")
     pId[:serverId] = r.root.attributes["machineIdentifier"]
-    pId[:token] = Dir["token.*"][0]
-    pId[:token].slice!("token.") if pId[:token]
   end  
   r = send(cmd,pId,h["id"] || "",h)
   puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
@@ -558,7 +557,7 @@ end
 
 def Video(pId,mId,parameters)
   a,p= pId[:server].split(":")
-  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}")
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
   return nil
 end
 
