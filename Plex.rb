@@ -46,7 +46,7 @@ end
 
 
 def PlayerGet(pId,msg)
-  url = "http://#{pId[:server]}#{msg}"
+  url = "http://#{pId[:address]}#{msg}"
   if url.include?('?')
     url << "&X-Plex-Token=#{pId[:token]}"
   else
@@ -75,7 +75,8 @@ def SavantRequest(hostname,cmd,req)
     pId = @@playerDB[hostname["address"]]
     pId[:address] = hostname["address"]
     pId[:server] = hostname["server"] || hostname["address"]
-    pId[:token],pId[:clientId],x = Dir["token.*"][0].split('.')
+    f = Dir["*token"]
+    pId[:token],pId[:clientId],x = f[0].split('.') if f[0]
     r = Document.new PlexGet(pId,"")
     pId[:serverId] = r.root.attributes["machineIdentifier"]
   end  
@@ -557,7 +558,7 @@ end
 
 def Video(pId,mId,parameters)
   a,p= pId[:server].split(":")
-  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http")
   return nil
 end
 
