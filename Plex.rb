@@ -1,6 +1,7 @@
 
 require 'socket'
 require 'net/http'
+require 'net/https'
 require 'json'
 require 'uri'
 require "rexml/document"
@@ -10,10 +11,9 @@ module Plex
   extend self
 @@playerDB = {}
 @@Head = " HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: "
-#@@kodiHost = "192.168.0.5"
-#@@kodiPort = 8080
+@@Path = File.expand_path(File.dirname(__FILE__))
 
-def ServerPost(pId,msg)
+def ServerPost(pId,msg) #Should rename - only used for Kodi(player)
   h,p = pId[:address].split(':')
   sock = TCPSocket.open(h,p)
   msg[:id]="1"
@@ -29,39 +29,43 @@ rescue
   return nil
 end
 
-def PlexGet(pId,msg)
+def SimpleGet(pId,url)
+  uri = URI.parse(url)
+  puts uri
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.read_timeout = 500
+  req = Net::HTTP::Get.new(uri.request_uri)
+  r = http.request(req)
+  return r.body
+  if r.include?('Unauthorized')
+    f = Dir["#{@@Path}/*#{pId[:address].gsub(/[\.\:]/,'')}"]
+    File.delete(f[0]) if f[0]
+    pId = nil
+  end
+rescue
+  puts $!, $@
+  return nil
+end
+
+def PlexGet(pId,msg) #plex server
   url = "http://#{pId[:server]}#{msg}"
   if url.include?('?')
     url << "&X-Plex-Token=#{pId[:token]}"
   else
     url << "?X-Plex-Token=#{pId[:token]}"
   end
-  uri = URI.parse(url)
-  http = Net::HTTP.new(uri.host, uri.port)
-  http.read_timeout = 500
-  req = Net::HTTP::Get.new(uri.request_uri)
-  r = http.request(req)
-  return r.body
+  return SimpleGet(pId,url)
 end
 
 
-def PlayerGet(pId,msg)
-  url = "http://#{pId[:address]}#{msg}"
+def PlayerGet(pId,msg) #plex HT
+  url = "http://#{pId[:server]}#{msg}"
   if url.include?('?')
     url << "&X-Plex-Token=#{pId[:token]}"
   else
     url << "?X-Plex-Token=#{pId[:token]}"
   end
-  uri = URI.parse(url)
-  puts "HERE IS THE A URI TO LOOK AT!!!!!!\n#{uri}"
-  http = Net::HTTP.new(uri.host, uri.port)
-  http.read_timeout = 500
-  req = Net::HTTP::Get.new(uri.request_uri)
-  r = http.request(req)
-  return r.body.encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''})
-rescue
-  puts $!, $@
-  return nil
+  return SimpleGet(pId,url)
 end
 
 #Savant Request Handling Below********************
@@ -75,8 +79,8 @@ def SavantRequest(hostname,cmd,req)
     pId = @@playerDB[hostname["address"]]
     pId[:address] = hostname["address"]
     pId[:server] = hostname["server"] || hostname["address"]
-    f = Dir["*token"]
-    pId[:token],pId[:clientId],x = f[0].split('.') if f[0]
+    f = Dir["#{@@Path}/*#{pId[:address].gsub(/[\.\:]/,'')}"]
+    pId[:token],pId[:clientId] = /.+\/([^\.]+)\.(.+)/.match(f[0]).captures if f[0]
     r = Document.new PlexGet(pId,"")
     pId[:serverId] = r.root.attributes["machineIdentifier"]
   end  
@@ -90,6 +94,7 @@ def TopMenu(pId,mId,parameters)
   b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"search",:cmd=>"search",:text=>"Search",:iInput=>true}]
   b.push(*GetPlexMenu(pId,"/library/sections"))
   b.push(*GetPlexMenu(pId,"/channels/all"))
+  return [{:id=>"Input",:cmd=>"GetPass",:text=>"Username",:iInput=>true}] unless b.length > 2
   return b
 end
 
@@ -558,8 +563,31 @@ end
 
 def Video(pId,mId,parameters)
   a,p= pId[:server].split(":")
-  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http")
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
   return nil
+end
+
+def GetPass(pId,mId,parameters)
+  pId[:username] = parameters["search"]
+  return [{:id=>"Input",:cmd=>"SignIn",:text=>"Password",:iInput=>true}]
+end
+
+
+def SignIn(pId,mId,parameters)
+  u = pId[:username]
+  p = parameters["search"]
+  uri = URI.parse("https://my.plexapp.com/users/sign_in.xml")
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.use_ssl = true
+  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  request = Net::HTTP::Post.new(uri.request_uri)
+  request.basic_auth(u, p)
+  request["X-Plex-Client-Identifier"] = "savant"
+  response = http.request(request)
+  pId[:token] = response.body[/authenticationToken="([^"]+)"/,1]
+  pId[:clientId] = pId[:address].gsub(/[\.\:]/,'')
+  File.open("#{@@Path}/#{pId[:token]}.#{pId[:clientId]}","w"){}
+  return TopMenu(pId,mId,parameters)
 end
 
 end
