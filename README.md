@@ -25,8 +25,6 @@ If the device relies on a server like plex, you may need to add ```,server:<ip-o
 
 By default Plex uses port 3005 for Plex Home Theater players and 32400 for the server.
 
-Plex Pass support coming soon.
-
 ####Script
 To keep things as simple as possible, download the entire zip 
 https://github.com/benumc/lms-lmq/archive/master.zip 
