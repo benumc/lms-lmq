@@ -17,12 +17,10 @@ def GetServerAddress
 end
 
 @@Handshake = "GET / HTTP/1.1\r\n"\
-"Host: 192.168.1.40:53304\r\n"\
 "Connection: Upgrade\r\n"\
 "Pragma: no-cache\r\n"\
 "Cache-Control: no-cache\r\n"\
 "Upgrade: websocket\r\n"\
-"Origin: http://192.168.1.40:54479\r\n"\
 "Sec-WebSocket-Version: 13\r\n"\
 "User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.74 Safari/537.36\r\n"\
 "Accept-Language: en-US,en;q=0.8\r\n"\
