@@ -12,6 +12,7 @@ module Plex
 @@playerDB = {}
 @@Head = " HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: "
 @@Path = File.expand_path(File.dirname(__FILE__))
+@@Art = "http://cdn.wccftech.com/wp-content/uploads/2015/01/PlexMobile_512x512.png"
 
 def ServerPost(pId,msg) #Should rename - only used for Kodi(player)
   h,p = pId[:address].split(':')
@@ -99,10 +100,12 @@ def TopMenu(pId,mId,parameters)
 end
 
 def Status(pId,mId,parameters)
+  
   #puts "Command not supported: #{mId}"
+  default = {:Artwork=>@@Art}
   r = ServerPost(pId,{:method => "Player.GetActivePlayers"})
   #puts r.inspect
-  return nil unless r && r["result"] && r["result"] != []
+  return default unless r && r["result"] && r["result"] != []
   playid = 1
   r["result"].each {|i| playid = i["playerid"]}
   pId[:playerId] = playid
@@ -123,7 +126,7 @@ def Status(pId,mId,parameters)
   }
   r = ServerPost(pId,s)["result"]
   #puts r.inspect
-  return nil unless r["item"] && r["item"].length > 0
+  return default unless r["item"] && r["item"].length > 0
   a = r["item"]["art"]["album.thumb"] ||\
       r["item"]["art"]["tvshow.thumb"] ||\
       r["item"]["art"]["poster"] ||\
@@ -140,6 +143,7 @@ def Status(pId,mId,parameters)
       art = "#{art}?X-Plex-Token=#{pId[:token]}"
     end
   end
+  art ||= @@Art
   
   
   id = r["item"]["id"]
@@ -169,7 +173,7 @@ def Status(pId,mId,parameters)
     }
   }
   r = ServerPost(pId,s)["result"]
-  return nil if r.nil?
+  return default if r.nil?
   r["speed"] == 1 ? mode = "play" : mode = "pause"
   
   duration = r["totaltime"]["hours"]*60*60 + r["totaltime"]["minutes"]*60 + r["totaltime"]["seconds"]
@@ -501,7 +505,8 @@ end
 
 def Search(pId,mId,parameters)
   b = []
-  b.push(*GetPlexMenu(pId,"#{parameters["menu"]}#{parameters["search"]}"))
+  s = URI.escape(parameters["search"])
+  b.push(*GetPlexMenu(pId,"#{parameters["menu"]}#{s}"))
   return b
 end
 
@@ -519,13 +524,13 @@ def GetPlexMenu(pId,url)
   pThumb = r.root.attributes["thumb"]
 
   r.elements.each("MediaContainer/*") do |e|
+    next unless e.name == "Track" || e.name == "Video" || e.name == "Directory"
     ic = e.attributes["thumb"]||pThumb||""
     ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
     
     id = e.attributes["key"]
     id = "#{url}/#{id}/all" if url == "/library/sections"
     id = "#{url}/#{id}" unless id.include?("/")
-
     if ic.include?('?')
       ic = "#{ic}&X-Plex-Token=#{pId[:token]}"
     else
@@ -554,13 +559,15 @@ end
 
 def Video(pId,mId,parameters)
   a,p= pId[:server].split(":")
-  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
+  i = pId[:address].gsub(/[\.\:]/,'')
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
   return nil
 end
 
 def Track(pId,mId,parameters)
   a,p= pId[:server].split(":")
-  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
+  i = pId[:address].gsub(/[\.\:]/,'')
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
   return nil
 end
 

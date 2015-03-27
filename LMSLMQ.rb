@@ -282,27 +282,9 @@ def CreateNowPlaying(hostname,menuArray)
 end
 
 def CreateStatus(hostname,statusHash)
-  #Can probably eliminate large portions of this
-  body = {
-    "params"=>[hostname,["status","-","1","tags:tag"]],
-    "method"=>"slim.request",
-    "id"=>"1",
-    "result"=>{
-      "seq_no"=>0,
-      "mixer volume"=>0,
-      "player_name"=>"player",
-      "playlist_tracks"=>0,
-      "player_connected"=>1,
-      "mode"=>"stop",
-      "signalstrength"=>0,
-      "playlist shuffle"=>0,
-      "power"=>0,
-      "playlist mode"=>"off",
-      "player_ip"=>"",
-      "playlist repeat"=>0
-    }
-  }
-  if statusHash && statusHash[:Mode] && statusHash[:Mode] != "stop"
+  body = {}
+  statusHash ||= {:Mode=>"stop"}
+  statusHash[:Info] ||= ""
     body["id"] = statusHash[:Id] || ""
     body["result"] = {
       "seq_no"=>0,
@@ -360,7 +342,8 @@ def CreateStatus(hostname,statusHash)
       "current_title"=>statusHash[:Info][0]||statusHash[:Info]||"",
       "player_ip"=>""
     }
-  end
+  #end
+  puts body
   return body
 end
 
