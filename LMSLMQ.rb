@@ -143,9 +143,9 @@ def CreateTopMenu(hostname,menuArray)
           "go"=> {
             "params"=> {
               "search"=> "__TAGGEDINPUT__",
-              "menu"=> "search"
+              "menu"=> i[:id]
             },
-            "cmd"=> [i[:cmd]]
+            "cmd"=> ["cmd:#{i[:cmd]}"]
           }
         },
         "window"=> {
@@ -206,9 +206,9 @@ def CreateMenu(hostname,menuArray)
             "params"=> {
               "search"=> "__TAGGEDINPUT__",
               "id"=>i[:id],
-              "menu"=> "search"
+              "menu"=> i[:id]
             },
-            "cmd"=> [i[:cmd]]
+            "cmd"=> ["cmd:#{i[:cmd]}"]
           }
         },
         "window"=> {
@@ -509,6 +509,7 @@ def ConnThread(local)
     reply = GetSavantReply(body)
     begin
       local.write(reply)
+      local.close
     rescue Errno::EPIPE
      puts "Reply failed. Savant Closed Socket. Continuing..."
     end

@@ -59,7 +59,7 @@ end
 
 
 def PlayerGet(pId,msg) #plex HT
-  url = "http://#{pId[:server]}#{msg}"
+  url = "http://#{pId[:address]}#{msg}"
   if url.include?('?')
     url << "&X-Plex-Token=#{pId[:token]}"
   else
@@ -72,7 +72,7 @@ end
 
 def SavantRequest(hostname,cmd,req)
   puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
-  h = Hash[req.select { |e|  e.include?(":")  }.map {|e| e.split(":") if e && e.to_s.include?(":")}]
+  h = Hash[req.select { |e|  e.include?(":")  }.map {|e| e.split(":",2) if e && e.to_s.include?(":")}]
   pId = @@playerDB[hostname["address"]]
   unless pId
     @@playerDB[hostname["address"]] = {}
@@ -91,7 +91,7 @@ end
 
 def TopMenu(pId,mId,parameters)
   puts "TopMenu"
-  b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"search",:cmd=>"search",:text=>"Search",:iInput=>true}]
+  b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"/search?query=",:cmd=>"Search",:text=>"Search",:iInput=>true}]
   b.push(*GetPlexMenu(pId,"/library/sections"))
   b.push(*GetPlexMenu(pId,"/channels/all"))
   return [{:id=>"Input",:cmd=>"GetPass",:text=>"Username",:iInput=>true}] unless b.length > 2
@@ -135,9 +135,9 @@ def Status(pId,mId,parameters)
     art = URI.decode(URI.decode(URI.decode(art))).split("url=")[1]
     art.gsub!("127.0.0.1:32400",pId[:server] || pId[:address])
     if art.include?('?')
-      art << "&X-Plex-Token=#{pId[:token]}"
+      art = "#{art}&X-Plex-Token=#{pId[:token]}"
     else
-      art << "?X-Plex-Token=#{pId[:token]}"
+      art = "#{art}?X-Plex-Token=#{pId[:token]}"
     end
   end
   
@@ -501,37 +501,35 @@ def Input(pId,mId,parameters)
 end
 
 def Search(pId,mId,parameters)
-  t = parameters["search"]
   b = []
-  #b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"Search",:cmd=>"Search",:text=>"Search",:iInput=>true}]
-  b.push(*GetPlexMenu(pId,"/search?local=1&query=#{parameters["search"]}"))
-  #puts b
+  b.push(*GetPlexMenu(pId,"#{parameters["menu"]}#{parameters["search"]}"))
   return b
 end
 
 def Directory(pId,mId,parameters)
   b = []
-  #b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"Search",:cmd=>"Search",:text=>"Search",:iInput=>true}]
   b.push(*GetPlexMenu(pId,mId))
   return b
 end
 
 def GetPlexMenu(pId,url)
-  url.gsub!('&','&amp;')
+
   puts url
   r = Document.new PlexGet(pId,url)
   b = []
   puts r.to_s
   pThumb = r.root.attributes["thumb"]
+  
+=begin
   r.elements.each("MediaContainer/Video") do |e|
-    ic = e.attributes["thumb"]||pThumb
-    ic = "http://#{pId[:server]}#{ic}" unless ic.include? 'http://'
+    ic = e.attributes["thumb"]||pThumb||""
+    ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
     id = e.attributes["key"]
     id = "#{url}/#{id}" unless id.include?("/")  
     if ic.include?('?')
-      ic << "&X-Plex-Token=#{pId[:token]}"
+      ic = "#{ic}&X-Plex-Token=#{pId[:token]}"
     else
-      ic << "?X-Plex-Token=#{pId[:token]}"
+      ic = "#{ic}?X-Plex-Token=#{pId[:token]}"
     end
     b[b.length] = {
       :id =>id,
@@ -541,27 +539,67 @@ def GetPlexMenu(pId,url)
     }
   end
   
-  r.elements.each("MediaContainer/Directory") do |e|
-    ic = e.attributes["thumb"]||pThumb
-    ic = "http://#{pId[:server]}#{ic}" unless ic.include? 'http://'
+  r.elements.each("MediaContainer/Track") do |e|
+    ic = e.attributes["thumb"]||pThumb || ""
+    ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
     id = e.attributes["key"]
-    id = "#{url}/#{id}" unless id.include?("/")
+    id = "#{url}/#{id}" unless id.include?("/")  
     if ic.include?('?')
-      ic << "&X-Plex-Token=#{pId[:token]}"
+      ic = "#{ic}&X-Plex-Token=#{pId[:token]}"
     else
-      ic << "?X-Plex-Token=#{pId[:token]}"
+      ic = "#{ic}?X-Plex-Token=#{pId[:token]}"
     end
     b[b.length] = {
       :id =>id,
-      :cmd =>"Directory",
+      :cmd =>"Track",
       :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
       :icon =>ic
     }
+  end
+=end
+  
+  r.elements.each("MediaContainer/*") do |e|
+    
+    ic = e.attributes["thumb"]||pThumb||""
+    ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
+    
+    id = e.attributes["key"]
+    id = "#{url}/#{id}/all" if url == "/library/sections"
+    id = "#{url}/#{id}" unless id.include?("/")
+
+    if ic.include?('?')
+      ic = "#{ic}&X-Plex-Token=#{pId[:token]}"
+    else
+      ic = "#{ic}?X-Plex-Token=#{pId[:token]}"
+    end
+    
+    if e.attributes["search"] == "1"
+      b[b.length] = {
+        :id =>"#{id}&query=",
+        :cmd =>"Search",
+        :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
+        :icon =>ic,
+        :iInput=>true
+      }
+    else
+      b[b.length] = {
+        :id =>id,
+        :cmd =>"Directory",
+        :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
+        :icon =>ic
+      }
+    end
   end
   return b
 end
 
 def Video(pId,mId,parameters)
+  a,p= pId[:server].split(":")
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
+  return nil
+end
+
+def Track(pId,mId,parameters)
   a,p= pId[:server].split(":")
   PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{pId[:clientId]}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
   return nil
@@ -582,7 +620,7 @@ def SignIn(pId,mId,parameters)
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
   request = Net::HTTP::Post.new(uri.request_uri)
   request.basic_auth(u, p)
-  request["X-Plex-Client-Identifier"] = "savant"
+  request["X-Plex-Client-Identifier"] = pId[:address].gsub(/[\.\:]/,'')
   response = http.request(request)
   pId[:token] = response.body[/authenticationToken="([^"]+)"/,1]
   pId[:clientId] = pId[:address].gsub(/[\.\:]/,'')
