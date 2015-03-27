@@ -183,7 +183,6 @@ def Status(pId,mId,parameters)
       :Info => i,
       :Artwork => art
     }
-    puts body
   return body
 end
 
@@ -514,52 +513,12 @@ end
 
 def GetPlexMenu(pId,url)
 
-  puts url
+  #puts url
   r = Document.new PlexGet(pId,url)
   b = []
-  puts r.to_s
   pThumb = r.root.attributes["thumb"]
-  
-=begin
-  r.elements.each("MediaContainer/Video") do |e|
-    ic = e.attributes["thumb"]||pThumb||""
-    ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
-    id = e.attributes["key"]
-    id = "#{url}/#{id}" unless id.include?("/")  
-    if ic.include?('?')
-      ic = "#{ic}&X-Plex-Token=#{pId[:token]}"
-    else
-      ic = "#{ic}?X-Plex-Token=#{pId[:token]}"
-    end
-    b[b.length] = {
-      :id =>id,
-      :cmd =>"Video",
-      :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
-      :icon =>ic
-    }
-  end
-  
-  r.elements.each("MediaContainer/Track") do |e|
-    ic = e.attributes["thumb"]||pThumb || ""
-    ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
-    id = e.attributes["key"]
-    id = "#{url}/#{id}" unless id.include?("/")  
-    if ic.include?('?')
-      ic = "#{ic}&X-Plex-Token=#{pId[:token]}"
-    else
-      ic = "#{ic}?X-Plex-Token=#{pId[:token]}"
-    end
-    b[b.length] = {
-      :id =>id,
-      :cmd =>"Track",
-      :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
-      :icon =>ic
-    }
-  end
-=end
-  
+
   r.elements.each("MediaContainer/*") do |e|
-    
     ic = e.attributes["thumb"]||pThumb||""
     ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
     
@@ -584,7 +543,7 @@ def GetPlexMenu(pId,url)
     else
       b[b.length] = {
         :id =>id,
-        :cmd =>"Directory",
+        :cmd =>e.name,
         :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
         :icon =>ic
       }
