@@ -18,8 +18,13 @@ def LoadPlugin(pNm)
       Object.const_get(pNm)
     rescue
       puts "Loading #{pNm}"
-      f = File.expand_path(File.dirname(__FILE__)) + '/' + pNm
-      require f
+      begin
+        f = File.expand_path(File.dirname(__FILE__)) + '/' + pNm
+        require f
+      rescue
+        puts $!, $@
+        puts "To unstable to continue without required plugins. Aborting"
+      end
     end
   end
 end
@@ -343,7 +348,7 @@ def CreateStatus(hostname,statusHash)
       "player_ip"=>""
     }
   #end
-  puts body
+  #puts body
   return body
 end
 
@@ -452,7 +457,7 @@ def SavantRequest(req)
       rep = Object.const_get(pNm).SavantRequest(hostname,cmd,req) unless body
     rescue 
       puts $!, $@
-      abort
+      #abort
     end
     body = CreateMenu(hostname,rep) unless rep.nil?
   end
@@ -463,19 +468,6 @@ end
 def ConnThread(local)
   head,msg = ReadFromSavant(local)
   #puts "Head: #{head},Message: #{msg}"
-  if msg.include? "netplayaudio"
-    begin
-      local.write(Netplayaudio.NetplayConnect(head,msg))
-    rescue
-    end
-    return
-  elsif msg.include? "squeezebox"
-    begin
-      local.write(Squeezebox.SqueezeConnect(head,msg))
-    rescue
-    end
-    return
-  end
   #puts "Savant Request:\n#{head}\n#{msg}\n\n"
   if msg && msg.length > 4 && head.include?("json")
     req = JSON.parse(msg)
@@ -488,13 +480,14 @@ def ConnThread(local)
     else
      puts "Unexpected result: #{req}"
     end
-    #puts "Reply#{body}"
-    reply = GetSavantReply(body)
+     #puts "Reply#{body}"
+     reply = GetSavantReply(body)
     begin
       local.write(reply)
       local.close
-    rescue Errno::EPIPE
-     puts "Reply failed. Savant Closed Socket. Continuing..."
+    rescue 
+      puts $!, $@
+      puts "Reply failed. Savant Closed Socket. Continuing..."
     end
   else #savant could be asking for artwork, try and facilitate...
     r = ""
@@ -517,12 +510,14 @@ def ConnThread(local)
       local.write(r)
       local.close
     rescue
+      puts $!, $@
       put "Write failed. Savant Closed Socket. Continuing..."
     end
   end
 end
 
-Thread.abort_on_exception = true
+Thread.abort_on_exception = true #set false to increase longevity 
+
 puts "Waiting for connection from Savant on port 9000. #{$server}"
 loop do #Each savant request creates a new thread
   Thread.start($server.accept) { |local| ConnThread(local) }
