@@ -230,6 +230,8 @@ def CreateMenu(hostname,menuArray)
         "id"=> "opmlsearch"
       }
     else
+      /([^\(\[]+)(.*)/.match(i[:text])
+      i[:text] = "#{$1}\n#{$2}" if $1 && $2
       body["result"]["item_loop"][body["result"]["item_loop"].length] = {
         "params"=>{
           :cmd=>i[:cmd],
