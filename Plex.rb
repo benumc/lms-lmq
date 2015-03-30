@@ -3,19 +3,20 @@ require 'socket'
 require 'net/http'
 require 'net/https'
 require 'json'
-require 'uri'
+require 'cgi'
 require "rexml/document"
+require 'base64'
 include REXML
 
 module Plex
   extend self
-@@playerDB = {}
+@@p = {}
 @@Head = " HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: "
 @@Path = File.expand_path(File.dirname(__FILE__))
 @@Art = "http://cdn.wccftech.com/wp-content/uploads/2015/01/PlexMobile_512x512.png"
 
 def ServerPost(pId,msg) #Should rename - only used for Kodi(player)
-  h,p = pId[:address].split(':')
+  h,p = pId.split(':')
   sock = TCPSocket.open(h,p)
   msg[:id]="1"
   msg[:jsonrpc]="2.0"
@@ -39,9 +40,9 @@ def SimpleGet(pId,url)
   r = http.request(req)
   return r.body
   if r.include?('Unauthorized')
-    f = Dir["#{@@Path}/*#{pId[:address].gsub(/[\.\:]/,'')}"]
+    f = Dir["#{@@Path}/*#{pId.gsub(/[\.\:]/,'')}"]
     File.delete(f[0]) if f[0]
-    pId = nil
+    @@p[pId] = nil
   end
 rescue
   puts $!, $@
@@ -49,22 +50,22 @@ rescue
 end
 
 def PlexGet(pId,msg) #plex server
-  url = "http://#{pId[:server]}#{msg}"
+  url = "http://#{@@p[pId][:server]}#{msg}"
   if url.include?('?')
-    url << "&X-Plex-Token=#{pId[:token]}"
+    url << "&X-Plex-Token=#{@@p[pId][:token]}"
   else
-    url << "?X-Plex-Token=#{pId[:token]}"
+    url << "?X-Plex-Token=#{@@p[pId][:token]}"
   end
   return SimpleGet(pId,url)
 end
 
 
 def PlayerGet(pId,msg) #plex HT
-  url = "http://#{pId[:address]}#{msg}"
+  url = "http://#{pId}#{msg}"
   if url.include?('?')
-    url << "&X-Plex-Token=#{pId[:token]}"
+    url << "&X-Plex-Token=#{@@p[pId][:token]}"
   else
-    url << "?X-Plex-Token=#{pId[:token]}"
+    url << "?X-Plex-Token=#{@@p[pId][:token]}"
   end
   return SimpleGet(pId,url)
 end
@@ -74,16 +75,14 @@ end
 def SavantRequest(hostname,cmd,req)
   puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
   h = Hash[req.select { |e|  e.include?(":")  }.map {|e| e.split(":",2) if e && e.to_s.include?(":")}]
-  pId = @@playerDB[hostname["address"]]
-  unless pId
-    @@playerDB[hostname["address"]] = {}
-    pId = @@playerDB[hostname["address"]]
-    pId[:address] = hostname["address"]
-    pId[:server] = hostname["server"] || hostname["address"]
-    f = Dir["#{@@Path}/*#{pId[:address].gsub(/[\.\:]/,'')}"]
-    pId[:token],pId[:clientId] = /.+\/([^\.]+)\.(.+)/.match(f[0]).captures if f[0]
+  pId = hostname["address"]
+  unless @@p[pId]
+    @@p[pId] = {}
+    @@p[pId][:server] = hostname["server"] || hostname["address"]
+    f = Dir["#{@@Path}/*#{pId.gsub(/[\.\:]/,'')}"]
+    @@p[pId][:token],@@p[pId][:clientId] = /.+\/([^\.]+)\.(.+)/.match(f[0]).captures if f[0]
     r = Document.new PlexGet(pId,"")
-    pId[:serverId] = r.root.attributes["machineIdentifier"]
+    @@p[pId][:serverId] = r.root.attributes["machineIdentifier"]
   end  
   r = send(cmd,pId,h["id"] || "",h)
   puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
@@ -108,7 +107,7 @@ def Status(pId,mId,parameters)
   return default unless r && r["result"] && r["result"] != []
   playid = 1
   r["result"].each {|i| playid = i["playerid"]}
-  pId[:playerId] = playid
+  @@p[pId][:playerId] = playid
   s = {
     :method => "Player.GetItem",
     :params => {
@@ -133,14 +132,14 @@ def Status(pId,mId,parameters)
       r["item"]["art"]["artist.fanart"] ||\
       r["item"]["art"]["fanart"] ||\
       r["item"]["art"]["thumb"]
-  art = "http://#{pId[:address]}/image/#{a.gsub!('%','%25')}" if a
+  art = "http://#{pId}/image/#{a.gsub!('%','%25')}" if a
   if art && art.include?("127.0.0.1")
     art = URI.decode(URI.decode(URI.decode(art))).split("url=")[1]
-    art.gsub!("127.0.0.1:32400",pId[:server] || pId[:address])
+    art.gsub!("127.0.0.1:32400",@@p[pId][:server] || pId)
     if art.include?('?')
-      art = "#{art}&X-Plex-Token=#{pId[:token]}"
+      art = "#{art}&X-Plex-Token=#{@@p[pId][:token]}"
     else
-      art = "#{art}?X-Plex-Token=#{pId[:token]}"
+      art = "#{art}?X-Plex-Token=#{@@p[pId][:token]}"
     end
   end
   art ||= @@Art
@@ -158,7 +157,7 @@ def Status(pId,mId,parameters)
   i << r["item"]["genre"].join(",") if (r["item"]["genre"]||"").length > 0
   
   i = i.flatten.compact
-  i.map{|e| e.encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => '_'})}
+  i.map{|e| e.gsub(/\P{ASCII}/, '')}
   s = {
     :method => "Player.GetProperties",
     :params => {
@@ -216,7 +215,7 @@ def SkipToTime(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Seek",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :value => {
         :seconds => s,
         :minutes => m,
@@ -231,7 +230,7 @@ def TransportPlay(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.PlayPause",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :play => "toggle"
     }
     })
@@ -242,7 +241,7 @@ def TransportPause(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.PlayPause",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :play => false
     }
     })
@@ -253,7 +252,7 @@ def TransportStop(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Stop",
     :params => {
-      :playerid => pId[:playerId]
+      :playerid => @@p[pId][:playerId]
     }
     })
   return nil
@@ -263,7 +262,7 @@ def TransportFastReverse(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.SetSpeed",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :speed => "decrement"
     }
     })
@@ -274,7 +273,7 @@ def TransportFastForward(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.SetSpeed",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :speed => "increment"
     }
     })
@@ -285,7 +284,7 @@ def TransportSkipReverse(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.GoTo",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :to => "previous"
     }
     })
@@ -296,7 +295,7 @@ def TransportSkipForward(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.GoTo",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :to => "next"
     }
     })
@@ -307,7 +306,7 @@ def TransportRepeatOn(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.SetRepeat",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :repeat => "all"
     }
     })
@@ -318,7 +317,7 @@ def TransportRepeatToggle(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.SetRepeat",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :repeat => "cycle"
     }
     })
@@ -329,7 +328,7 @@ def TransportRepeatOff(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.SetRepeat",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :repeat => "off"
     }
     })
@@ -340,7 +339,7 @@ def TransportShuffleToggle(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :shuffle => "toggle"
     }
     })
@@ -351,7 +350,7 @@ def TransportShuffleOn(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :shuffle => true
     }
     })
@@ -362,7 +361,7 @@ def TransportShuffleOff(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Shuffle",
     :params => {
-      :playerid => pId[:playerId],
+      :playerid => @@p[pId][:playerId],
       :shuffle => false
     }
     })
@@ -415,7 +414,7 @@ def PowerOff(pId,mId,parameters)
   ServerPost(pId,{
     :method => "Player.Stop",
     :params => {
-      :playerid => pId[:playerId]
+      :playerid => @@p[pId][:playerId]
     }
     })
   return nil
@@ -519,29 +518,35 @@ end
 def GetPlexMenu(pId,url)
 
   #puts url
-  r = Document.new PlexGet(pId,url)
+  r = Document.new PlexGet(pId,url.gsub("%2526","%26"))
   b = []
   pThumb = r.root.attributes["thumb"]
 
   r.elements.each("MediaContainer/*") do |e|
     next unless e.name == "Track" || e.name == "Video" || e.name == "Directory"
+
     ic = e.attributes["thumb"]||pThumb||""
-    ic = "http://#{pId[:server]}#{ic}" unless ic.nil? || ic.include?('http://')
+    ic = "http://127.0.0.1:32400#{ic}" unless ic.nil? || ic.include?('http://')
+    ic = "http://#{@@p[pId][:server]}/photo/:/transcode?width=100&height=100&url=#{CGI::escape(ic)}"
     
     id = e.attributes["key"]
+    id.gsub!('+','%20')
+    id.gsub!("%26","%2526")
     id = "#{url}/#{id}/all" if url == "/library/sections"
     id = "#{url}/#{id}" unless id.include?("/")
+
     if ic.include?('?')
-      ic = "#{ic}&X-Plex-Token=#{pId[:token]}"
+      ic = "#{ic}&X-Plex-Token=#{@@p[pId][:token]}"
     else
-      ic = "#{ic}?X-Plex-Token=#{pId[:token]}"
+      ic = "#{ic}?X-Plex-Token=#{@@p[pId][:token]}"
     end
-    
+
+ 
     if e.attributes["search"] == "1"
       b[b.length] = {
         :id =>"#{id}&query=",
         :cmd =>"Search",
-        :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
+        :text =>e.attributes["title"].gsub(/\P{ASCII}/, ''),
         :icon =>ic,
         :iInput=>true
       }
@@ -549,7 +554,7 @@ def GetPlexMenu(pId,url)
       b[b.length] = {
         :id =>id,
         :cmd =>e.name,
-        :text =>e.attributes["title"].encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''}),
+        :text =>e.attributes["title"].gsub(/\P{ASCII}/, ''),
         :icon =>ic
       }
     end
@@ -558,27 +563,40 @@ def GetPlexMenu(pId,url)
 end
 
 def Video(pId,mId,parameters)
-  a,p= pId[:server].split(":")
-  i = pId[:address].gsub(/[\.\:]/,'')
-  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
+  a,p= @@p[pId][:server].split(":")
+  i = pId.gsub(/[\.\:]/,'')
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{@@p[pId][:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
+  return nil
+end
+
+def Video64(pId,mId,parameters)
+  a,p= @@p[pId][:server].split(":")
+  i = pId.gsub(/[\.\:]/,'')
+  puts "\n\n\n#{mId}\n\n\n"
+  mId = Base64.decode64(mId) 
+  puts "\n\n\n#{mId}\n\n\n"
+  
+  
+
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{@@p[pId][:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
   return nil
 end
 
 def Track(pId,mId,parameters)
-  a,p= pId[:server].split(":")
-  i = pId[:address].gsub(/[\.\:]/,'')
-  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{pId[:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
+  a,p= @@p[pId][:server].split(":")
+  i = pId.gsub(/[\.\:]/,'')
+  PlayerGet(pId,"/player/playback/playMedia?key=#{mId}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{@@p[pId][:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{mId}")
   return nil
 end
 
 def GetPass(pId,mId,parameters)
-  pId[:username] = parameters["search"]
+  @@p[pId][:username] = parameters["search"]
   return [{:id=>"Input",:cmd=>"SignIn",:text=>"Password",:iInput=>true}]
 end
 
 
 def SignIn(pId,mId,parameters)
-  u = pId[:username]
+  u = @@p[pId][:username]
   p = parameters["search"]
   uri = URI.parse("https://my.plexapp.com/users/sign_in.xml")
   http = Net::HTTP.new(uri.host, uri.port)
@@ -586,11 +604,13 @@ def SignIn(pId,mId,parameters)
   http.verify_mode = OpenSSL::SSL::VERIFY_NONE
   request = Net::HTTP::Post.new(uri.request_uri)
   request.basic_auth(u, p)
-  request["X-Plex-Client-Identifier"] = pId[:address].gsub(/[\.\:]/,'')
+  request["X-Plex-Client-Identifier"] = pId.gsub(/[\.\:]/,'')
   response = http.request(request)
-  pId[:token] = response.body[/authenticationToken="([^"]+)"/,1]
-  pId[:clientId] = pId[:address].gsub(/[\.\:]/,'')
-  File.open("#{@@Path}/#{pId[:token]}.#{pId[:clientId]}","w"){}
+  @@p[pId][:token] = response.body[/authenticationToken="([^"]+)"/,1]
+  @@p[pId][:clientId] = pId.gsub(/[\.\:]/,'')
+  r = Document.new PlexGet(pId,"")
+  @@p[pId][:serverId] = r.root.attributes["machineIdentifier"]
+  File.open("#{@@Path}/#{@@p[pId][:token]}.#{@@p[pId][:clientId]}","w"){}
   return TopMenu(pId,mId,parameters)
 end
 

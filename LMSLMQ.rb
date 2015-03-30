@@ -241,7 +241,7 @@ def CreateMenu(hostname,menuArray)
       body["result"]["item_loop"][body["result"]["item_loop"].length-1][:icon]=i[:icon] if i[:icon]
       body["result"]["item_loop"][body["result"]["item_loop"].length-1][:presetParams]={} if i[:iContext]
     end
-    if menuArray.length > 40
+    if menuArray.length > 40 && i[:textKey]
       tk = (i[:text].delete("The ")[0] || "").upcase
       body["result"]["item_loop"][body["result"]["item_loop"].length-1][:textkey]=tk
     end
@@ -287,68 +287,70 @@ def CreateNowPlaying(hostname,menuArray)
 end
 
 def CreateStatus(hostname,statusHash)
+  
   body = {}
   statusHash ||= {:Mode=>"stop"}
-  statusHash[:Info] ||= ""
-    body["id"] = statusHash[:Id] || ""
-    body["result"] = {
-      "seq_no"=>0,
-      "mixer volume"=>statusHash[:Volume]||0,
-      "mixer muting"=>1,
-      "player_name"=>"player",
-      "playlist_tracks"=>0,
-      "player_connected"=>1,
-      "playlist_tracks"=>1,
-      "time"=>statusHash[:Time] || 0,
-      "mode"=>statusHash[:Mode] || "pause",
-      "signalstrength"=>0,
-      "playlist shuffle"=>0,
-      "playlist_timestamp"=>1,
-      "remote"=>1,
-      "rate"=>1,
-      "can_seek"=>1,
-      "power"=>1,
-      "playlist repeat"=>0,
+  statusHash[:Info] = statusHash[:Info].to_a || []
+  statusHash[:Info].each do |e|
+    e.gsub!(/\P{ASCII}/, '')
+  end
+  body["id"] = statusHash[:Id] || ""
+  body["result"] = {
+    "seq_no"=>0,
+    "mixer volume"=>statusHash[:Volume]||0,
+    "mixer muting"=>1,
+    "player_name"=>"player",
+    "playlist_tracks"=>0,
+    "player_connected"=>1,
+    "playlist_tracks"=>1,
+    "time"=>statusHash[:Time] || 0,
+    "mode"=>statusHash[:Mode] || "pause",
+    "signalstrength"=>0,
+    "playlist shuffle"=>0,
+    "playlist_timestamp"=>1,
+    "remote"=>1,
+    "rate"=>1,
+    "can_seek"=>1,
+    "power"=>1,
+    "playlist repeat"=>0,
+    "duration"=>statusHash[:Duration] || 0,
+    "playlist mode"=>"off",
+    "player_ip"=>"",
+    "playlist repeat"=>0,
+    "playlist_cur_index"=>"1",
+    "playlist_loop"=>[{
+      "playlist index"=>1,
+      "id"=>statusHash[:Id] || "",
+      "title"=>statusHash[:Info][0]||"",
+      "coverid"=>statusHash[:Id]||"",
+      "artist"=>statusHash[:Info][1]||"",
+      "album"=>statusHash[:Info][2]||"",
       "duration"=>statusHash[:Duration] || 0,
-      "playlist mode"=>"off",
-      "player_ip"=>"",
-      "playlist repeat"=>0,
-      "playlist_cur_index"=>"1",
-      "playlist_loop"=>[{
-        "playlist index"=>1,
-        "id"=>statusHash[:Id] || "",
-        "title"=>statusHash[:Info][0]||statusHash[:Info]||"",
-        "coverid"=>statusHash[:Id]||"",
-        "artist"=>statusHash[:Info][1]||"",
-        "album"=>statusHash[:Info][2]||"",
-        "duration"=>statusHash[:Duration] || 0,
-        "tracknum"=>"1",
-        #"year"=>player[:NowPlaying]["ProductionYear"],
-        #"bitrate"=>player[:NowPlaying]["MediaStreams"][0]["BitRate"],
-        #"url"=>player[:NowPlaying]["Path"],
-        #"type"=>player[:NowPlaying]["Type"],
-        "artwork_url"=>statusHash[:Artwork]||""
-      }],
-      "remoteMeta"=>{
-        "id"=>statusHash[:Id]||"",
-        "title"=>statusHash[:Info][0]||statusHash[:Info]||"",
-        "coverid"=>statusHash[:Id]||"",
-        "artist"=>statusHash[:Info][1]||"",
-        "album"=>statusHash[:Info][1]||"",
-        "duration"=>statusHash[:Duration]||0,
-        "tracknum"=>"1",
-        #"year"=>player[:NowPlaying]["ProductionYear"],
-        #"bitrate"=>player[:NowPlaying]["MediaStreams"][0]["BitRate"],
-        #"url"=>player[:NowPlaying]["Path"],
-        #"type"=>player[:NowPlaying]["Type"],
-        "artwork_url"=>statusHash[:Artwork]||""
-      },
-      "playlist shuffle"=>0,
-      "current_title"=>statusHash[:Info][0]||statusHash[:Info]||"",
-      "player_ip"=>""
-    }
-  #end
-  #puts body
+      "tracknum"=>"1",
+      #"year"=>player[:NowPlaying]["ProductionYear"],
+      #"bitrate"=>player[:NowPlaying]["MediaStreams"][0]["BitRate"],
+      #"url"=>player[:NowPlaying]["Path"],
+      #"type"=>player[:NowPlaying]["Type"],
+      "artwork_url"=>statusHash[:Artwork]||""
+    }],
+    "remoteMeta"=>{
+      "id"=>statusHash[:Id]||"",
+      "title"=>statusHash[:Info][0]||"",
+      "coverid"=>statusHash[:Id]||"",
+      "artist"=>statusHash[:Info][1]||"",
+      "album"=>statusHash[:Info][1]||"",
+      "duration"=>statusHash[:Duration]||0,
+      "tracknum"=>"1",
+      #"year"=>player[:NowPlaying]["ProductionYear"],
+      #"bitrate"=>player[:NowPlaying]["MediaStreams"][0]["BitRate"],
+      #"url"=>player[:NowPlaying]["Path"],
+      #"type"=>player[:NowPlaying]["Type"],
+      "artwork_url"=>statusHash[:Artwork]||""
+    },
+    "playlist shuffle"=>0,
+    "current_title"=>statusHash[:Info][0]||"",
+    "player_ip"=>""
+  }
   return body
 end
 
