@@ -1,3 +1,4 @@
+# encoding: utf-8
 
 require 'socket'
 require 'net/http'
@@ -73,7 +74,7 @@ end
 #Savant Request Handling Below********************
 
 def SavantRequest(hostname,cmd,req)
-  puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
+  #puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
   h = Hash[req.select { |e|  e.include?(":")  }.map {|e| e.split(":",2) if e && e.to_s.include?(":")}]
   pId = hostname["address"]
   unless @@p[pId]
@@ -85,7 +86,7 @@ def SavantRequest(hostname,cmd,req)
     @@p[pId][:serverId] = r.root.attributes["machineIdentifier"]
   end  
   r = send(cmd,pId,h["id"] || "",h)
-  puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
+  #puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
   return r
 end
 
