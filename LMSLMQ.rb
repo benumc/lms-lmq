@@ -41,6 +41,9 @@ def ReadFromSavant(local)
     end
   end
   return head,msg
+rescue
+  puts $!, $@
+  return nil
 end
 
 def GetSavantReply(body)
