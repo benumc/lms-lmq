@@ -298,7 +298,7 @@ def CreateStatus(hostname,statusHash)
   statusHash ||= {:Mode=>"stop"}
   statusHash[:Info] = statusHash[:Info].to_a || []
   statusHash[:Info].each do |e|
-    e.gsub!(/\P{ASCII}/, '')
+    e.gsub!(/\P{ASCII}/, '') if e
   end
   body["id"] = statusHash[:Id] || ""
   body["result"] = {
