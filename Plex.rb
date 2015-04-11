@@ -16,7 +16,7 @@ module Plex
 @@Path = File.expand_path(File.dirname(__FILE__))
 @@Art = "http://cdn.wccftech.com/wp-content/uploads/2015/01/PlexMobile_512x512.png"
 
-def ServerPost(pId,msg) #Should rename - only used for Kodi(player)
+def KodiPost(pId,msg) #Should rename - only used for Kodi(player)
   h,p = pId.split(':')
   sock = TCPSocket.open(h,p)
   msg[:id]="1"
@@ -103,7 +103,7 @@ def Status(pId,mId,parameters)
   
   #puts "Command not supported: #{mId}"
   default = {:Artwork=>@@Art}
-  r = ServerPost(pId,{:method => "Player.GetActivePlayers"})
+  r = KodiPost(pId,{:method => "Player.GetActivePlayers"})
   #puts r.inspect
   return default unless r && r["result"] && r["result"] != []
   playid = 1
@@ -124,7 +124,7 @@ def Status(pId,mId,parameters)
       :playerid => playid
     }
   }
-  r = ServerPost(pId,s)["result"]
+  r = KodiPost(pId,s)["result"]
   #puts r.inspect
   return default unless r["item"] && r["item"].length > 0
   a = r["item"]["art"]["album.thumb"] ||\
@@ -172,7 +172,7 @@ def Status(pId,mId,parameters)
       :playerid => playid
     }
   }
-  r = ServerPost(pId,s)["result"]
+  r = KodiPost(pId,s)["result"]
   return default if r.nil?
   r["speed"] == 1 ? mode = "play" : mode = "pause"
   
@@ -213,7 +213,7 @@ def SkipToTime(pId,mId,parameters)
   s = t % 60
   m = (t / 60) % 60
   h = t / (60 * 60)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.Seek",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -228,7 +228,7 @@ def SkipToTime(pId,mId,parameters)
 end
 
 def TransportPlay(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.PlayPause",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -239,7 +239,7 @@ def TransportPlay(pId,mId,parameters)
 end
 
 def TransportPause(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.PlayPause",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -250,7 +250,7 @@ def TransportPause(pId,mId,parameters)
 end
 
 def TransportStop(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.Stop",
     :params => {
       :playerid => @@p[pId][:playerId]
@@ -260,7 +260,7 @@ def TransportStop(pId,mId,parameters)
 end
 
 def TransportFastReverse(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.SetSpeed",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -271,7 +271,7 @@ def TransportFastReverse(pId,mId,parameters)
 end
 
 def TransportFastForward(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.SetSpeed",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -282,7 +282,7 @@ def TransportFastForward(pId,mId,parameters)
 end
 
 def TransportSkipReverse(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.GoTo",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -293,7 +293,7 @@ def TransportSkipReverse(pId,mId,parameters)
 end
 
 def TransportSkipForward(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.GoTo",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -304,7 +304,7 @@ def TransportSkipForward(pId,mId,parameters)
 end
 
 def TransportRepeatOn(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.SetRepeat",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -315,7 +315,7 @@ def TransportRepeatOn(pId,mId,parameters)
 end
 
 def TransportRepeatToggle(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.SetRepeat",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -326,7 +326,7 @@ def TransportRepeatToggle(pId,mId,parameters)
 end
 
 def TransportRepeatOff(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.SetRepeat",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -337,7 +337,7 @@ def TransportRepeatOff(pId,mId,parameters)
 end
 
 def TransportShuffleToggle(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.Shuffle",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -348,7 +348,7 @@ def TransportShuffleToggle(pId,mId,parameters)
 end
 
 def TransportShuffleOn(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.Shuffle",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -359,7 +359,7 @@ def TransportShuffleOn(pId,mId,parameters)
 end
 
 def TransportShuffleOff(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.Shuffle",
     :params => {
       :playerid => @@p[pId][:playerId],
@@ -370,49 +370,49 @@ def TransportShuffleOff(pId,mId,parameters)
 end
 
 def TransportMenu(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Input.Back",
     })
   return nil
 end
 
 def TransportUp(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Input.Up",
     })
   return nil
 end
 
 def TransportDown(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Input.Down",
     })
   return nil
 end
 
 def TransportLeft(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Input.Left",
     })
   return nil
 end
 
 def TransportRight(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Input.Right",
     })
   return nil
 end
 
 def TransportSelect(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Input.Select",
     })
   return nil
 end
 
 def PowerOff(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Player.Stop",
     :params => {
       :playerid => @@p[pId][:playerId]
@@ -422,14 +422,14 @@ def PowerOff(pId,mId,parameters)
 end
 
 def PowerOn(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Input.ShowOSD",
     })
   return nil
 end
 
 def VolumeUp(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Application.SetVolume",
     :params => {
       :volume => "increment"
@@ -439,7 +439,7 @@ def VolumeUp(pId,mId,parameters)
 end
 
 def VolumeDown(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Application.SetVolume",
     :params => {
       :volume => "decrement"
@@ -450,7 +450,7 @@ end
 
 def SetVolume(pId,mId,parameters)
   v = parameters["volume"].to_i
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Application.SetVolume",
     :params => {
       :volume => v
@@ -460,7 +460,7 @@ def SetVolume(pId,mId,parameters)
 end
 
 def MuteOn(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Application.SetMute",
     :params => {
       :mute => false
@@ -470,7 +470,7 @@ def MuteOn(pId,mId,parameters)
 end
 
 def MuteOff(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Application.SetMute",
     :params => {
       :mute => true
@@ -480,7 +480,7 @@ def MuteOff(pId,mId,parameters)
 end
 
 def MuteOff(pId,mId,parameters)
-  ServerPost(pId,{
+  KodiPost(pId,{
     :method => "Application.SetMute",
     :params => {
       :mute => false
@@ -493,7 +493,7 @@ end
 
 def Input(pId,mId,parameters)
   t = parameters["search"]
-  r = ServerPost(pId,{
+  r = KodiPost(pId,{
     :method => "Input.SendText",
     :params => {
       :text => "#{t}",

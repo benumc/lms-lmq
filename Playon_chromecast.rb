@@ -179,15 +179,15 @@ end
 #Savant Request Handling Below********************
 
 def SavantRequest(hostname,cmd,req)
-  puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
-  h = Hash[req.map {|e| e.split(":") if e && e.to_s.include?(":")}]
+  #puts "Cmd: #{cmd}        Req: #{req.inspect}" unless req.include? "status"
+  h = Hash[req.select { |e|  e.include?(":")  }.map {|e| e.split(":",2) if e && e.to_s.include?(":")}]
   unless @@playerDB[hostname["address"]]
     @@playerDB[hostname["address"]] = {}
     @@playerDB[hostname["address"]][:address] = hostname["address"]
     Reconnect(@@playerDB[hostname["address"]])
   end
   r = send(cmd,@@playerDB[hostname["address"]],h["id"] || "",h)
-  puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
+  #puts "Cmd: #{cmd}        Rep: #{r.inspect}" unless req.include? "status"
   return r
 end
 
