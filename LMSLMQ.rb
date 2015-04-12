@@ -13,6 +13,8 @@ $blockSize = 1024
 $server = TCPServer.open(9000)
 $menuBuffer = {}
 
+$Image = "HTTP/1.1 200 OK\r\nContent-Type: image/jpg\r\nContent-Length: 1560\r\n\r\n#{File.open("transcode.jpg", "rb").read}"
+
 def LoadPlugin(pNm)
   if pNm.length > 0
     begin
@@ -499,23 +501,22 @@ def ConnThread(local)
     end
   else #savant could be asking for artwork, try and facilitate...
     r = ""
+    #puts "Savant Request:\n#{head}\n#{msg}\n\n"
     begin
-      address,port = head.slice!(/GET (\/[^\/]+)\/.+HTTP\/1.1/,1)[1..-1].split(":")
-      sock = TCPSocket.open(address,port)
-      sock.write("#{head}\r\n\r\n")
-      h = sock.gets("\r\n\r\n")
-      /Content-Length: ([^\r\n]+)\r\n/.match(h)
-      l = $1.to_i
-      while r.length < l
-        r << sock.read(l-r.length)
-      end
-      r = h+r
+      uri = URI.parse(head[/GET \/?(h?t?t?p?:?\/?\/?[^ ]+) HTTP\/1.1/,1])
+      http = Net::HTTP.new(uri.host, uri.port)
+      req = Net::HTTP::Get.new(uri.request_uri)
+      http.use_ssl = true if head.include?("https")
+      r = http.request(req)
+      b = r.body
+      r = "HTTP/1.1 200 OK\r\nContent-Type: #{r["content-type"]}\r\nContent-Length: #{b.length}\r\n\r\n#{b}"
     rescue
-      "puts file not found #{head}"
+      puts $!, $@
       r = $NotFound
     end
     begin
       local.write(r)
+      #local.write($Image)
       local.close
     rescue
       puts $!, $@

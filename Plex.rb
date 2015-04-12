@@ -15,6 +15,40 @@ module Plex
 @@Head = " HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: "
 @@Path = File.expand_path(File.dirname(__FILE__))
 @@Art = "http://cdn.wccftech.com/wp-content/uploads/2015/01/PlexMobile_512x512.png"
+@@PlayonServer = ""
+
+def GetPlayonAddress
+  uri = URI.parse("http://m.playon.tv/q.php")
+ #puts uri
+  #r = Net::HTTP.start(uri.host, uri.port, :read_timeout => 10)
+  http = Net::HTTP.new(uri.host, uri.port)
+  req = Net::HTTP::Get.new(uri.request_uri)
+  r = http.request(req).body.split("|")[0]
+  uri = URI.parse("http://#{r}/images/search.png")
+  res = Net::HTTP.start(uri.host, uri.port, :read_timeout => 1, :open_timeout => 1)
+  puts res.to_s
+  return r
+rescue
+  puts "Could not locate Playon Server. Continuing"
+  return ""
+end
+
+puts "Playon Loading"
+@@PlayonServer = GetPlayonAddress()
+puts "PlayonServer : #{@@PlayonServer}"
+
+
+
+def PlayonGET(url)
+  puts url
+  uri = URI.parse("http://#{@@PlayonServer}#{url}")
+  http = Net::HTTP.new(uri.host, uri.port)
+  http.read_timeout = 500
+  req = Net::HTTP::Get.new(uri.request_uri)
+  r = http.request(req)
+  #puts r.body
+  return r.body.encode("ASCII", {:invalid => :replace, :undef => :replace, :replace => ''})
+end
 
 def KodiPost(pId,msg) #Should rename - only used for Kodi(player)
   h,p = pId.split(':')
@@ -95,6 +129,17 @@ def TopMenu(pId,mId,parameters)
   b = [{:id=>"Input",:cmd=>"Input",:text=>"Keyboard",:iInput=>true},{:id=>"/search?query=",:cmd=>"Search",:text=>"Search",:iInput=>true}]
   b.push(*GetPlexMenu(pId,"/library/sections"))
   b.push(*GetPlexMenu(pId,"/channels/all"))
+  unless @@PlayonServer == "" && b.length > 2
+    r = Document.new PlayonGET("/data/data.xml")
+    r.elements["catalog"].each do |element| 
+      b[b.length] = {
+        :id =>element.attributes["href"],
+        :cmd =>element.attributes["type"],
+        :text =>element.attributes["name"],
+        :icon =>"http://#{@@PlayonServer}#{element.attributes["art"]}"
+      }
+    end
+  end
   return [{:id=>"Input",:cmd=>"GetPass",:text=>"Username",:iInput=>true}] unless b.length > 2
   return b
 end
@@ -127,15 +172,16 @@ def Status(pId,mId,parameters)
   r = KodiPost(pId,s)["result"]
   #puts r.inspect
   return default unless r["item"] && r["item"].length > 0
-  a = r["item"]["art"]["album.thumb"] ||\
+  art = r["item"]["art"]["album.thumb"] ||\
       r["item"]["art"]["tvshow.thumb"] ||\
       r["item"]["art"]["poster"] ||\
       r["item"]["art"]["artist.fanart"] ||\
       r["item"]["art"]["fanart"] ||\
       r["item"]["art"]["thumb"]
-  art = "http://#{pId}/image/#{a.gsub!('%','%25')}" if a
-  if art && art.include?("127.0.0.1")
+  #puts art
+  if art && (art.include?("127.0.0.1") || art.include?("plexserver"))
     art = URI.decode(URI.decode(URI.decode(art))).split("url=")[1]
+    art.gsub!(/image:\/\/([^\/]+)\//,"image://#{@@p[pId][:server] || pId}/")
     art.gsub!("127.0.0.1:32400",@@p[pId][:server] || pId)
     if art.include?('?')
       art = "#{art}&X-Plex-Token=#{@@p[pId][:token]}"
@@ -144,7 +190,7 @@ def Status(pId,mId,parameters)
     end
   end
   art ||= @@Art
-  
+  #puts art
   
   id = r["item"]["id"]
    
@@ -423,7 +469,7 @@ end
 
 def PowerOn(pId,mId,parameters)
   KodiPost(pId,{
-    :method => "Input.ShowOSD",
+    :method => "Input.Up",
     })
   return nil
 end
@@ -527,8 +573,9 @@ def GetPlexMenu(pId,url)
     next unless e.name == "Track" || e.name == "Video" || e.name == "Directory"
 
     ic = e.attributes["thumb"]||pThumb||""
-    ic = "http://127.0.0.1:32400#{ic}" unless ic.nil? || ic.include?('http://')
-    ic = "http://#{@@p[pId][:server]}/photo/:/transcode?width=100&height=100&url=#{CGI::escape(ic)}"
+    ic = CGI::unescape(CGI::unescape(ic[/urls=(.+)/,1])) if ic.include?("urls=")
+    ic = "http://#{@@p[pId][:server]}#{ic}" unless ic.nil? || ic.include?('http://') || ic.include?('https://')
+    #ic = "http://#{@@p[pId][:server]}/photo/:/transcode?width=100&height=100&url=#{CGI::escape(ic)}"
     
     id = e.attributes["key"]
     id.gsub!('+','%20')
@@ -614,5 +661,84 @@ def SignIn(pId,mId,parameters)
   File.open("#{@@Path}/#{@@p[pId][:token]}.#{@@p[pId][:clientId]}","w"){}
   return TopMenu(pId,mId,parameters)
 end
+
+#Playon Menus
+
+def folder(pId,mId,parameters)
+  r = Document.new PlayonGET(mId)
+  b = []
+  art = r.root.attributes["art"]
+  searchable = r.root.attributes["searchable"]
+  art ||= "/images/folders/folder_2_0.png?rsm=pz&width=128&height=128&rst=16"
+  b[0] = {:iInput=>1,:text=>"Search",:id=>mId,:cmd=>"psearch"} if searchable=="true"
+  r.elements["group"].each do |element|
+    l = b.length
+    b[l] = {}
+    b[l][:id] = element.attributes["href"]
+    b[l][:text] = element.attributes["name"]
+    b[l][:cmd] = element.attributes["type"]
+    if art || element.attributes["art"]
+      #b[l][:icon] ="http://#{@@PlayonServer}#{element.attributes["art"] || art}"
+      b[l][:icon] ="http://#{@@PlayonServer}#{element.attributes["art"] || art}"
+    end
+  end
+  return b
+end
+
+
+def video(pId,mId,parameters)
+  a,p= @@p[pId][:server].split(":")
+  i = pId.gsub(/[\.\:]/,'')
+ #puts pId,mId
+  r = Document.new PlayonGET(mId)
+  b = [{
+    :icon =>"http://#{@@PlayonServer}#{r.root.attributes["art"]}",
+    :text => r.root.attributes["name"],
+    :cmd => r.root.attributes["type"],
+    :text => r.root.attributes["name"]
+  }]
+  src = r.elements["group"].elements["media"].attributes["src"]
+  src = URI.escape("http://#{@@PlayonServer}/#{src}")
+  puts src
+  KodiPost(pId,{
+    :method => "Player.Open",
+    :params => {
+      :item => {
+        :file => src
+      }
+    }
+    })
+  KodiPost(pId,{
+    :method => "Player.PlayPause",
+    :params => {
+      :playerid => @@p[pId][:playerId],
+      :play => true
+    }
+    })
+  #PlayerGet(pId,"/player/playback/playMedia?key=#{src}&X-Plex-Client-Identifier=#{i}&machineIdentifier=#{@@p[pId][:serverId]}&address=#{a}&port=#{p}&protocol=http&path=#{src}")
+  return {}
+end
+
+def psearch(pId,mId,parameters)
+  r = Document.new PlayonGET(mId+"&searchterm=dc:description%20contains%20"+URI.escape(parameters["search"]))
+  b = []
+  art = r.root.attributes["art"]
+  searchable = r.root.attributes["searchable"]
+  art ||= "/images/folders/folder_2_0.png?rsm=pz&width=128&height=128&rst=16"
+  b[0] = {:iInput=>1,:text=>"Find"} if searchable=="true"
+  r.elements["group"].each do |element|
+    l = b.length
+    b[l] = {}
+    b[l][:id] = element.attributes["href"]
+    b[l][:text] = element.attributes["name"]
+    b[l][:cmd] = element.attributes["type"]
+    if art || element.attributes["art"]
+      #b[l][:icon] ="http://#{@@PlayonServer}#{element.attributes["art"] || art}"
+      b[l][:icon] ="#{@@PlayonServer}#{element.attributes["art"] || art}"
+    end
+  end
+  return b
+end
+
 
 end
