@@ -13,7 +13,6 @@ $blockSize = 1024
 $server = TCPServer.open(9000)
 $menuBuffer = {}
 
-$Image = "HTTP/1.1 200 OK\r\nContent-Type: image/jpg\r\nContent-Length: 1560\r\n\r\n#{File.open("transcode.jpg", "rb").read}"
 
 def LoadPlugin(pNm)
   if pNm.length > 0
@@ -516,7 +515,6 @@ def ConnThread(local)
     end
     begin
       local.write(r)
-      #local.write($Image)
       local.close
     rescue
       puts $!, $@

@@ -37,8 +37,6 @@ puts "Playon Loading"
 @@PlayonServer = GetPlayonAddress()
 puts "PlayonServer : #{@@PlayonServer}"
 
-
-
 def PlayonGET(url)
   puts url
   uri = URI.parse("http://#{@@PlayonServer}#{url}")
